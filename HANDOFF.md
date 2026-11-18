@@ -9,6 +9,7 @@
 
 - **Project Name**: `PocketBox`
 - **Location**: `/Users/federicocaruso/Documents/LLM projects/new pocket`
+- **GitHub Repository**: [https://github.com/franzkappa/pocketbox](https://github.com/franzkappa/pocketbox) (Public, `main` branch synced with `origin/main`)
 - **Primary Stack**:
   - **Runtime**: Node.js `v24.21.0` (at `~/.local/node/bin/node`)
   - **Framework**: Next.js 15 (App Router) + React 19 + TypeScript 5

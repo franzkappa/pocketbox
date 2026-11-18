@@ -83,7 +83,14 @@ It runs **locally on your Mac** with zero cloud subscription fees, provides an *
 
 ---
 
-### 1. Launch the Server
+### 1. Clone & Launch the Server
+
+Clone the repository and install dependencies:
+```bash
+git clone https://github.com/franzkappa/pocketbox.git
+cd pocketbox
+npm install
+```
 
 To start the local PocketBox server, run the executable startup script from the project folder:
 ```bash
