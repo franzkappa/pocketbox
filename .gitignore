@@ -5,4 +5,6 @@ node_modules/
 data/*.db-wal
 data/*.db-shm
 *.jpeg
+.env
+.env*.local
 

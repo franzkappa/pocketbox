@@ -241,10 +241,12 @@ new pocket/
 ├── tsconfig.json             # TypeScript configuration
 ├── next.config.mjs           # Next.js 15 config (server external packages)
 ├── tailwind.config.ts        # Tailwind typography & reader theme settings
+├── .env.example              # Example environment variables (Turso & Auth)
 ├── data/
 │   └── pocketbox.db          # Local SQLite database (WAL mode)
 ├── lib/
-│   ├── db.ts                 # Native node:sqlite database operations
+│   ├── db.ts                 # Dual-mode DB: Turso Cloud or local SQLite (@libsql/client)
+│   ├── auth.ts               # Password, PIN & Bearer API key verification
 │   ├── extractor.ts          # Mozilla Readability + JSDOM content extraction
 │   ├── offlineStorage.ts     # Client-side IndexedDB caching for iPhone
 │   ├── cors.ts               # API CORS middleware
@@ -252,28 +254,80 @@ new pocket/
 ├── app/
 │   ├── layout.tsx            # PWA shell, meta tags, and Service Worker registration
 │   ├── page.tsx              # Main library view (Inbox, Archive, Favorites)
+│   ├── add/                  # Quick-save endpoint & PWA Web Share Target
 │   ├── globals.css           # Reader & Tailwind base styling
 │   └── api/
 │       ├── articles/         # Article CRUD & extraction endpoints
+│       ├── auth/             # Login, logout, and auth status endpoints
 │       ├── folders/          # Folder management endpoints
 │       └── tags/             # Tag management endpoints
 ├── components/
 │   ├── Sidebar.tsx           # Responsive sidebar & mobile touch drawer
 │   ├── ArticleCard.tsx       # Article preview card with quick actions
 │   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes)
-│   └── AddArticleModal.tsx   # Manual URL input modal
+│   ├── AddArticleModal.tsx   # Manual URL input modal
+│   └── LoginView.tsx         # Clean password/PIN login view
 ├── public/
-│   ├── manifest.json         # Standalone PWA Manifest
-│   ├── sw.js                 # Service Worker for offline fallback
+│   ├── manifest.json         # Standalone PWA Manifest (with Web Share Target)
+│   ├── sw.js                 # Service Worker for offline fallback (pocketbox-v4)
 │   ├── favicon.svg           # Vector favicon
 │   └── icons/                # High-res PWA & Apple touch icons
 └── firefox-extension/        # Firefox WebExtension (Manifest v3)
     ├── manifest.json         # Extension manifest
-    ├── background.js         # Bookmark listener & sync processor
-    ├── popup.html            # 1-click toolbar action UI
-    ├── popup.js              # Tab saving & queue trigger
+    ├── background.js         # Bookmark listener & sync processor (cloud-aware)
+    ├── popup.html            # 1-click toolbar action UI with settings modal
+    ├── popup.js              # Tab saving, settings & queue trigger
     └── icons/                # Extension toolbar icons (16-128px)
 ```
+
+---
+
+## ☁️ Cloud Deployment (Vercel + Turso SQLite)
+
+To use PocketBox 24/7 without needing your Mac turned on:
+
+### 1. Create a Free Turso Database (Cloud SQLite)
+1. Sign up for free at [https://turso.tech](https://turso.tech) (using GitHub).
+2. Create a database named `pocketbox`.
+3. In the Turso dashboard, copy:
+   - **Database URL** (`libsql://pocketbox-...turso.io`)
+   - **Auth Token** (Create a token and copy it)
+
+### 2. Deploy to Vercel (100% Free Forever)
+1. Go to [https://vercel.com](https://vercel.com) and click **"Add New Project"**.
+2. Select your repository `franzkappa/pocketbox`.
+3. In the **Environment Variables** section, add:
+   - `TURSO_DATABASE_URL`: `libsql://pocketbox-...turso.io`
+   - `TURSO_AUTH_TOKEN`: `your-turso-token`
+   - `POCKETBOX_PASSWORD`: `your-secret-password` (e.g. `mysecretpin123`)
+   - `POCKETBOX_API_KEY`: `your-api-key` (optional, defaults to `POCKETBOX_PASSWORD`)
+4. Click **Deploy**. Vercel will give you a live HTTPS URL (e.g., `https://pocketbox.vercel.app`).
+
+### 3. Setup on iPhone (Reading & 1-Tap Saving)
+1. Open `https://your-pocketbox.vercel.app` in Safari on iPhone.
+2. Enter your password to log in.
+3. Tap **Share > Add to Home Screen**.
+4. **Offline Reading**: Articles automatically cache to your iPhone. You can open the app and read all articles even when offline or in airplane mode!
+5. **1-Tap Save via iOS Shortcut (Comando Rapido)**:
+   - In the iOS **Shortcuts (Comandi Rapidi)** app, create a new shortcut named **"PocketBox"**.
+   - Set it to accept **URLs** from the Share Sheet ("Mostra in Scheda di condivisione").
+   - Add action **"Ottieni contenuti dell'URL" (Get Contents of URL)**:
+     - URL: `https://your-pocketbox.vercel.app/api/articles`
+     - Metodo: `POST`
+     - Intestazioni:
+       - `Content-Type`: `application/json`
+       - `Authorization`: `Bearer your-secret-password`
+     - Corpo richiesta (Request Body): `JSON`
+       - `url`: `Input comando rapido` (Shortcut Input)
+   - Add action **"Mostra notifica"**: `"Articolo salvato in PocketBox! 📥"`.
+   - Now, on any article in Safari, Firefox, or Chrome on iPhone, simply tap **Condividi > PocketBox**!
+
+### 4. Configure Firefox Extension on Mac
+1. Click the PocketBox extension icon in Firefox.
+2. Click the gear icon (**⚙️**) in the top right of the popup.
+3. Enter your cloud URL (e.g., `https://your-pocketbox.vercel.app`) and your API Key / Password.
+4. Click **"Salva Impostazioni"**.
+5. The extension will now save directly to your cloud library!
 
 ---
 

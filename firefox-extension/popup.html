@@ -46,6 +46,11 @@
       font-size: 14px;
       letter-spacing: -0.02em;
     }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .status-badge {
       display: flex;
       align-items: center;
@@ -62,6 +67,29 @@
     .status-dot.online {
       background: #10B981;
       box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    }
+    .settings-btn {
+      background: transparent;
+      border: none;
+      color: #94A3B8;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 3px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .settings-btn:hover {
+      color: #F8FAFC;
+    }
+    .settings-panel {
+      background: #1E293B;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 14px;
+      border: 1px solid #334155;
+    }
+    .settings-panel.hidden {
+      display: none;
     }
     .tab-info {
       background: #1E293B;
@@ -98,71 +126,82 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    select, input[type="text"] {
+    select, input[type="text"], input[type="password"] {
       width: 100%;
-      background: #0B1120;
+      padding: 8px 10px;
+      background-color: #0F172A;
       border: 1px solid #334155;
       border-radius: 8px;
-      padding: 8px 10px;
       color: #F8FAFC;
       font-size: 12px;
       outline: none;
       transition: border-color 0.15s;
     }
-    select:focus, input[type="text"]:focus {
+    select:focus, input[type="text"]:focus, input[type="password"]:focus {
       border-color: #EF4444;
     }
     .btn-save {
       width: 100%;
       padding: 10px;
-      background: #EF4444;
+      background-color: #EF4444;
       color: white;
-      font-weight: 600;
-      font-size: 13px;
       border: none;
       border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      transition: background 0.15s, transform 0.05s;
-      margin-top: 4px;
+      transition: background-color 0.15s, opacity 0.15s;
     }
     .btn-save:hover {
-      background: #DC2626;
-    }
-    .btn-save:active {
-      transform: scale(0.98);
+      background-color: #DC2626;
     }
     .btn-save:disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
     }
+    .btn-secondary {
+      width: 100%;
+      padding: 7px;
+      background-color: #334155;
+      color: #F8FAFC;
+      border: none;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: background-color 0.15s;
+    }
+    .btn-secondary:hover {
+      background-color: #475569;
+    }
     .alert-box {
-      display: none;
-      padding: 8px 10px;
+      padding: 8px 12px;
       border-radius: 8px;
       font-size: 12px;
       margin-bottom: 12px;
-      text-align: center;
+      display: none;
     }
     .alert-box.success {
       display: block;
-      background: rgba(16, 185, 129, 0.15);
+      background-color: rgba(16, 185, 129, 0.15);
       border: 1px solid #10B981;
       color: #34D399;
     }
     .alert-box.error {
       display: block;
-      background: rgba(239, 68, 68, 0.15);
+      background-color: rgba(239, 68, 68, 0.15);
       border: 1px solid #EF4444;
       color: #F87171;
     }
     .footer-links {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       margin-top: 14px;
       padding-top: 10px;
       border-top: 1px solid #1E293B;
@@ -174,8 +213,9 @@
       cursor: pointer;
       background: none;
       border: none;
-      font-size: 11px;
       padding: 0;
+      font-size: 11px;
+      font-family: inherit;
     }
     .footer-link:hover {
       color: #F8FAFC;
@@ -189,10 +229,25 @@
       <div class="brand-icon">📦</div>
       <div class="brand-name">PocketBox</div>
     </div>
-    <div class="status-badge">
-      <div id="statusDot" class="status-dot"></div>
-      <span id="statusText">Checking...</span>
+    <div class="header-actions">
+      <div class="status-badge">
+        <div id="statusDot" class="status-dot"></div>
+        <span id="statusText">Checking...</span>
+      </div>
+      <button id="btnToggleSettings" class="settings-btn" title="Configura Server e API">⚙️</button>
     </div>
+  </div>
+
+  <div id="settingsPanel" class="settings-panel hidden">
+    <div class="form-group">
+      <label for="serverUrlInput">URL Server PocketBox</label>
+      <input type="text" id="serverUrlInput" placeholder="http://localhost:3000 o https://...">
+    </div>
+    <div class="form-group">
+      <label for="apiKeyInput">API Key o Password</label>
+      <input type="password" id="apiKeyInput" placeholder="Inserisci se configurata">
+    </div>
+    <button type="button" id="btnSaveSettings" class="btn-secondary">Salva Impostazioni</button>
   </div>
 
   <div id="alertBox" class="alert-box"></div>
@@ -222,7 +277,7 @@
 
   <div class="footer-links">
     <button type="button" id="btnSyncQueue" class="footer-link">🔄 Sync Bookmark Queue</button>
-    <a href="http://localhost:3000" target="_blank" class="footer-link">Open Library ↗</a>
+    <a id="openLibraryLink" href="http://localhost:3000" target="_blank" class="footer-link">Open Library ↗</a>
   </div>
 
   <script src="popup.js"></script>

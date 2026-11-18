@@ -17,6 +17,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { ArticleCard } from '@/components/ArticleCard';
 import { ReaderView } from '@/components/ReaderView';
 import { AddArticleModal } from '@/components/AddArticleModal';
+import { LoginView } from '@/components/LoginView';
 import { 
   cacheArticlesOffline, 
   getCachedArticlesOffline, 
@@ -39,6 +40,7 @@ export default function HomePage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   // Monitor online status
   useEffect(() => {
@@ -78,6 +80,14 @@ export default function HomePage() {
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
       const res = await fetch(`/api/articles?${params.toString()}`);
+      if (res.status === 401) {
+        const data = await res.json();
+        if (data.authRequired) {
+          setNeedsAuth(true);
+          setIsLoading(false);
+          return;
+        }
+      }
       if (!res.ok) throw new Error('Network error');
       const data = await res.json();
 
@@ -101,6 +111,15 @@ export default function HomePage() {
       setIsLoading(false);
     }
   }, [currentFilter, selectedFolderId, selectedTagId, searchQuery]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setNeedsAuth(true);
+    } catch (e) {
+      console.warn('Logout error:', e);
+    }
+  };
 
   useEffect(() => {
     fetchMetadata();
@@ -268,6 +287,18 @@ export default function HomePage() {
     return 'Inbox';
   }, [currentFilter, activeFolder, activeTag]);
 
+  if (needsAuth) {
+    return (
+      <LoginView
+        onSuccess={() => {
+          setNeedsAuth(false);
+          fetchArticles();
+          fetchMetadata();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex h-[100dvh] w-full bg-slate-950 overflow-hidden font-sans">
       {/* Desktop / Mobile Sidebar */}
@@ -296,6 +327,7 @@ export default function HomePage() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         isOnline={isOnline}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}

@@ -31,6 +31,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   isOnline: boolean;
+  onLogout?: () => void;
 }
 
 export function Sidebar({
@@ -49,6 +50,7 @@ export function Sidebar({
   isOpen,
   onClose,
   isOnline,
+  onLogout,
 }: SidebarProps) {
   const [newFolderName, setNewFolderName] = useState('');
   const [showAddFolder, setShowAddFolder] = useState(false);
@@ -274,17 +276,28 @@ export function Sidebar({
 
       {/* Footer Connection Status with Safe Area Clearance */}
       <div className="p-3 pb-[calc(var(--sab)+0.75rem)] border-t border-slate-800/80 bg-slate-900/50">
-        <div className="flex items-center gap-2 px-2 py-1 text-xs text-slate-400">
-          {isOnline ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Local Mac Server: Online</span>
-            </>
-          ) : (
-            <>
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Offline Mode (IndexedDB)</span>
-            </>
+        <div className="flex items-center justify-between px-2 py-1 text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            {isOnline ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>PocketBox Cloud: Online</span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span>Offline Mode (IndexedDB)</span>
+              </>
+            )}
+          </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              title="Esci da PocketBox"
+            >
+              Esci
+            </button>
           )}
         </div>
       </div>

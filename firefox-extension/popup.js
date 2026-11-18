@@ -1,6 +1,23 @@
-const API_BASE = 'http://localhost:3000';
-
 let currentTab = null;
+
+async function getServerConfig() {
+  const data = await browser.storage.sync.get({
+    serverUrl: 'http://localhost:3000',
+    apiKey: '',
+  });
+  const url = (data.serverUrl || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  const apiKey = (data.apiKey || '').trim();
+  return { url, apiKey };
+}
+
+function getAuthHeaders(apiKey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+    headers['X-API-Key'] = apiKey;
+  }
+  return headers;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const statusDot = document.getElementById('statusDot');
@@ -13,11 +30,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSave = document.getElementById('btnSave');
   const alertBox = document.getElementById('alertBox');
   const btnSyncQueue = document.getElementById('btnSyncQueue');
+  const openLibraryLink = document.getElementById('openLibraryLink');
+
+  // Settings elements
+  const btnToggleSettings = document.getElementById('btnToggleSettings');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const serverUrlInput = document.getElementById('serverUrlInput');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const btnSaveSettings = document.getElementById('btnSaveSettings');
+
+  let config = await getServerConfig();
+  if (openLibraryLink) openLibraryLink.href = config.url;
+  if (serverUrlInput) serverUrlInput.value = config.url;
+  if (apiKeyInput) apiKeyInput.value = config.apiKey;
 
   function showAlert(message, type = 'success') {
     alertBox.textContent = message;
     alertBox.className = `alert-box ${type}`;
   }
+
+  // Toggle settings panel
+  btnToggleSettings.addEventListener('click', () => {
+    settingsPanel.classList.toggle('hidden');
+  });
+
+  // Save settings
+  btnSaveSettings.addEventListener('click', async () => {
+    const newUrl = (serverUrlInput.value || 'http://localhost:3000').trim().replace(/\/+$/, '');
+    const newKey = (apiKeyInput.value || '').trim();
+
+    await browser.storage.sync.set({
+      serverUrl: newUrl,
+      apiKey: newKey,
+    });
+
+    config = { url: newUrl, apiKey: newKey };
+    if (openLibraryLink) openLibraryLink.href = config.url;
+    settingsPanel.classList.add('hidden');
+    showAlert('Impostazioni salvate! Verifico connessione...', 'success');
+    checkServerAndLoadFolders();
+  });
 
   // Get active tab
   try {
@@ -32,29 +84,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Check server status & load folders
-  try {
-    const res = await fetch(`${API_BASE}/api/folders`, { signal: AbortSignal.timeout(3000) });
-    if (res.ok) {
-      statusDot.className = 'status-dot online';
-      statusText.textContent = 'Server Online';
+  async function checkServerAndLoadFolders() {
+    try {
+      const res = await fetch(`${config.url}/api/folders`, {
+        headers: getAuthHeaders(config.apiKey),
+        signal: AbortSignal.timeout(4000),
+      });
 
-      const data = await res.json();
-      if (data.success && data.folders) {
-        data.folders.forEach((folder) => {
-          const opt = document.createElement('option');
-          opt.value = folder.id;
-          opt.textContent = folder.name;
-          folderSelect.appendChild(opt);
-        });
+      if (res.ok) {
+        statusDot.className = 'status-dot online';
+        statusText.textContent = 'Online';
+
+        const data = await res.json();
+        if (data.success && data.folders) {
+          folderSelect.innerHTML = '<option value="">No Folder (General)</option>';
+          data.folders.forEach((folder) => {
+            const opt = document.createElement('option');
+            opt.value = folder.id;
+            opt.textContent = folder.name;
+            folderSelect.appendChild(opt);
+          });
+        }
+      } else if (res.status === 401) {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Auth Required';
+        showAlert('Chiave API o Password richiesta. Clicca ⚙️ per configurarla.', 'error');
+      } else {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Server Error';
       }
-    } else {
+    } catch (err) {
       statusDot.className = 'status-dot';
-      statusText.textContent = 'Server Error';
+      statusText.textContent = 'Offline';
     }
-  } catch (err) {
-    statusDot.className = 'status-dot';
-    statusText.textContent = 'Server Offline';
   }
+
+  checkServerAndLoadFolders();
 
   // Handle Save
   saveForm.addEventListener('submit', async (e) => {
@@ -69,77 +134,73 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const folderId = folderSelect.value || undefined;
     const tags = tagsInput.value
-      ? tagsInput.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean)
-      : undefined;
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
 
-    // Extract rendered HTML directly from the active tab.
-    // This bypasses server-side 403 Forbidden blocks (DataDome, Cloudflare, Paywalls)
-    let pageHtml = null;
     try {
-      if (browser.scripting && browser.scripting.executeScript && currentTab.id) {
-        const results = await browser.scripting.executeScript({
-          target: { tabId: currentTab.id },
-          func: () => document.documentElement.outerHTML,
-        });
-        if (results && results[0] && results[0].result) {
-          pageHtml = results[0].result;
+      // 1. Try to extract rendered HTML from active tab
+      let tabHtml = null;
+      try {
+        if (browser.scripting && browser.scripting.executeScript && currentTab.id) {
+          const injection = await browser.scripting.executeScript({
+            target: { tabId: currentTab.id },
+            func: () => document.documentElement.outerHTML,
+          });
+          if (injection && injection[0] && injection[0].result) {
+            tabHtml = injection[0].result;
+          }
         }
-      } else if (browser.tabs && browser.tabs.executeScript && currentTab.id) {
-        const results = await browser.tabs.executeScript(currentTab.id, {
-          code: 'document.documentElement.outerHTML;',
-        });
-        if (results && results[0]) {
-          pageHtml = results[0];
-        }
+      } catch (scriptErr) {
+        console.warn('[PocketBox Popup] Could not extract DOM via scripting:', scriptErr);
       }
-    } catch (extractErr) {
-      console.warn('[PocketBox] Client-side DOM extraction failed, falling back:', extractErr);
-    }
 
-    try {
-      const response = await fetch(`${API_BASE}/api/articles`, {
+      // 2. Post to /api/articles
+      const payload = {
+        url: currentTab.url,
+        title: currentTab.title,
+        html: tabHtml || undefined,
+        folder_id: folderId,
+        tags: tags,
+      };
+
+      const res = await fetch(`${config.url}/api/articles`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: currentTab.url,
-          title: currentTab.title,
-          html: pageHtml || undefined,
-          folder_id: folderId,
-          tags: tags,
-        }),
+        headers: getAuthHeaders(config.apiKey),
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-      if (response.ok && data.success) {
-        btnSave.textContent = '✓ Saved to PocketBox!';
-        btnSave.style.background = '#10B981';
-        showAlert(data.alreadyExists ? 'Already in your library!' : 'Article saved successfully!', 'success');
-        setTimeout(() => {
-          window.close();
-        }, 1200);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const msg = data.alreadyExists
+          ? 'Article already in library (updated)!'
+          : 'Saved successfully!';
+        showAlert(msg, 'success');
+        btnSave.textContent = '✓ Saved!';
+        setTimeout(() => window.close(), 1200);
       } else {
-        showAlert(data.error || 'Failed to save', 'error');
-        btnSave.disabled = false;
-        btnSave.textContent = '💾 Save to PocketBox';
+        throw new Error(data.error || 'Server rejected request');
       }
     } catch (err) {
-      showAlert('Could not connect to localhost:3000', 'error');
+      showAlert(`Save failed: ${err.message}`, 'error');
       btnSave.disabled = false;
       btnSave.textContent = '💾 Save to PocketBox';
     }
   });
 
-  // Handle Sync Queue Now
+  // Handle manual queue sync trigger
   btnSyncQueue.addEventListener('click', async () => {
     btnSyncQueue.textContent = 'Syncing...';
     try {
-      await browser.runtime.sendMessage({ type: 'PROCESS_QUEUE_NOW' });
-      btnSyncQueue.textContent = '✓ Synced!';
+      await browser.runtime.sendMessage({ action: 'sync_queue' });
+      showAlert('Bookmark queue check initiated!', 'success');
+    } catch (err) {
+      showAlert('Could not trigger sync', 'error');
+    } finally {
       setTimeout(() => {
         btnSyncQueue.textContent = '🔄 Sync Bookmark Queue';
       }, 1500);
-    } catch {
-      btnSyncQueue.textContent = '🔄 Sync Bookmark Queue';
     }
   });
 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { corsHeaders, handleOptions } from '@/lib/cors';
+import { isRequestAuthorized } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,9 +10,16 @@ export async function OPTIONS() {
   return handleOptions();
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isRequestAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', authRequired: true },
+      { status: 401, headers: corsHeaders() }
+    );
+  }
+
   try {
-    const folders = db.getFolders();
+    const folders = await db.getFolders();
     return NextResponse.json({ success: true, folders }, { headers: corsHeaders() });
   } catch (error: any) {
     return NextResponse.json(
@@ -22,6 +30,13 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isRequestAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', authRequired: true },
+      { status: 401, headers: corsHeaders() }
+    );
+  }
+
   try {
     const body = await request.json();
     const { name, color } = body;
@@ -32,7 +47,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const folder = db.createFolder(name, color || '#6366F1');
+    const folder = await db.createFolder(name, color || '#6366F1');
     return NextResponse.json({ success: true, folder }, { status: 201, headers: corsHeaders() });
   } catch (error: any) {
     return NextResponse.json(

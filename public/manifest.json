@@ -1,7 +1,7 @@
 {
   "name": "PocketBox - Read It Later",
   "short_name": "PocketBox",
-  "description": "Local self-hosted offline-first article reader",
+  "description": "Cloud & offline-first personal article reader",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0F172A",
@@ -24,5 +24,14 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/add",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

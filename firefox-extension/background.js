@@ -1,7 +1,25 @@
-const API_BASE = 'http://localhost:3000';
 const QUEUE_FOLDER_NAME = '📥 PocketBox';
 
 let queueFolderId = null;
+
+async function getServerConfig() {
+  const data = await browser.storage.sync.get({
+    serverUrl: 'http://localhost:3000',
+    apiKey: '',
+  });
+  const url = (data.serverUrl || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  const apiKey = (data.apiKey || '').trim();
+  return { url, apiKey };
+}
+
+function getAuthHeaders(apiKey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+    headers['X-API-Key'] = apiKey;
+  }
+  return headers;
+}
 
 // Find or create the sync queue folder in bookmarks
 async function getOrCreateQueueFolder() {
@@ -44,6 +62,8 @@ async function processQueue() {
   const folderId = await getOrCreateQueueFolder();
   if (!folderId) return;
 
+  const config = await getServerConfig();
+
   try {
     const children = await browser.bookmarks.getChildren(folderId);
     if (!children || children.length === 0) {
@@ -56,7 +76,7 @@ async function processQueue() {
       if (!bookmark.url) continue;
 
       try {
-        console.log(`[PocketBox] Forwarding bookmark to local server: ${bookmark.url}`);
+        console.log(`[PocketBox] Forwarding bookmark to server (${config.url}): ${bookmark.url}`);
 
         // Try to capture rendered DOM if this URL is open in any browser tab
         let tabHtml = null;
@@ -77,9 +97,9 @@ async function processQueue() {
           console.warn(`[PocketBox] Could not extract from open tab for bookmark:`, tabErr);
         }
 
-        const response = await fetch(`${API_BASE}/api/articles`, {
+        const response = await fetch(`${config.url}/api/articles`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(config.apiKey),
           body: JSON.stringify({
             url: bookmark.url,
             title: bookmark.title,
@@ -105,12 +125,10 @@ async function processQueue() {
           } catch {}
         } else {
           console.warn(`[PocketBox] Server returned error ${response.status}. Retrying later.`);
-          // Stop processing subsequent bookmarks if local server is down or erroring
           break;
         }
       } catch (err) {
-        console.warn('[PocketBox] Could not connect to local PocketBox server. Retrying later.', err);
-        // Mac server is probably not running yet. Keep bookmarks intact.
+        console.warn('[PocketBox] Could not connect to PocketBox server. Retrying later.', err);
         break;
       }
     }
@@ -131,51 +149,31 @@ browser.bookmarks.onCreated.addListener(async (id, bookmark) => {
   }
 });
 
-// Periodic queue check every 2 minutes via alarms API
-browser.alarms.create('check-pocketbox-queue', { periodInMinutes: 2 });
+// Periodic queue check alarm (every 2 minutes)
+browser.alarms.create('checkPocketBoxQueue', { periodInMinutes: 2 });
 browser.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'check-pocketbox-queue') {
+  if (alarm.name === 'checkPocketBoxQueue') {
     processQueue();
   }
 });
 
-// Run check on startup and install
+// Run once on browser startup
 browser.runtime.onStartup.addListener(() => {
-  processQueue();
+  setTimeout(() => {
+    processQueue();
+  }, 3000);
 });
 
+// Run on extension installation / reload
 browser.runtime.onInstalled.addListener(() => {
   getOrCreateQueueFolder().then(() => {
     processQueue();
   });
 });
 
-// Handle messages from popup
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'SAVE_ACTIVE_TAB') {
-    (async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/articles`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: message.url,
-            folder_id: message.folder_id,
-            tags: message.tags,
-          }),
-        });
-
-        const data = await response.json();
-        sendResponse(data);
-      } catch (error) {
-        sendResponse({ success: false, error: 'Cannot connect to PocketBox server at localhost:3000' });
-      }
-    })();
-    return true; // async sendResponse
-  }
-
-  if (message.type === 'PROCESS_QUEUE_NOW') {
-    processQueue().then(() => sendResponse({ success: true }));
-    return true;
+// Listen for manual sync requests from popup
+browser.runtime.onMessage.addListener((message) => {
+  if (message.action === 'sync_queue') {
+    processQueue();
   }
 });

@@ -14,10 +14,11 @@
   - **Runtime**: Node.js `v24.21.0` (at `~/.local/node/bin/node`)
   - **Framework**: Next.js 15 (App Router) + React 19 + TypeScript 5
   - **Styling**: Tailwind CSS + Lucide Icons
-  - **Database**: Native `node:sqlite` (`DatabaseSync` in Node 24, WAL mode enabled)
+  - **Database**: Hybrid `@libsql/client` (supports Turso Cloud SQLite 24/7 or local `./data/pocketbox.db`)
+  - **Auth**: Built-in Password / PIN login & Bearer API key protection (`lib/auth.ts`)
   - **Article Parser**: `@mozilla/readability` + `jsdom`
-  - **Offline Storage**: Service Worker (`public/sw.js`) + IndexedDB (`lib/offlineStorage.ts`)
-  - **Browser Extension**: Firefox WebExtension (Manifest V3, `firefox-extension/`)
+  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v4`) + IndexedDB (`lib/offlineStorage.ts`)
+  - **Browser Extension**: Firefox WebExtension (Manifest V3, `firefox-extension/` with configurable Cloud URL & API Key)
 
 ---
 

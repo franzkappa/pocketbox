@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { corsHeaders, handleOptions } from '@/lib/cors';
+import { isRequestAuthorized } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,9 +14,16 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!isRequestAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', authRequired: true },
+      { status: 401, headers: corsHeaders() }
+    );
+  }
+
   try {
     const { id } = await params;
-    db.deleteFolder(id);
+    await db.deleteFolder(id);
     return NextResponse.json({ success: true, message: 'Folder deleted' }, { headers: corsHeaders() });
   } catch (error: any) {
     return NextResponse.json(

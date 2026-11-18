@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { extractArticle } from '@/lib/extractor';
 import { corsHeaders, handleOptions } from '@/lib/cors';
+import { isRequestAuthorized } from '@/lib/auth';
 import type { ArticleFilter } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -12,6 +13,13 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isRequestAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', authRequired: true },
+      { status: 401, headers: corsHeaders() }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const filter = (searchParams.get('filter') as ArticleFilter) || 'inbox';
@@ -19,7 +27,7 @@ export async function GET(request: NextRequest) {
     const tag_id = searchParams.get('tag_id') || undefined;
     const q = searchParams.get('q') || undefined;
 
-    const articles = db.getArticles({ filter, folder_id, tag_id, q });
+    const articles = await db.getArticles({ filter, folder_id, tag_id, q });
 
     return NextResponse.json(
       { success: true, articles },
@@ -35,6 +43,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isRequestAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', authRequired: true },
+      { status: 401, headers: corsHeaders() }
+    );
+  }
+
   try {
     const body = await request.json();
     const { url, html, title, folder_id, tags } = body;
@@ -47,9 +62,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if article already exists
-    const existing = db.getArticleByUrl(url);
+    const existing = await db.getArticleByUrl(url);
     if (existing) {
-      // If already saved, we can unarchive it if it was archived, or update folder/tags if provided
       const updates: any = {};
       if (folder_id !== undefined) updates.folder_id = folder_id;
       if (tags !== undefined) updates.tags = tags;
@@ -68,7 +82,7 @@ export async function POST(request: NextRequest) {
         updates.reading_time_minutes = reExtracted.reading_time_minutes;
       }
 
-      const updated = Object.keys(updates).length > 0 ? db.updateArticle(existing.id, updates) : existing;
+      const updated = Object.keys(updates).length > 0 ? await db.updateArticle(existing.id, updates) : existing;
       return NextResponse.json(
         { success: true, article: updated, alreadyExists: true },
         { headers: corsHeaders() }
@@ -78,8 +92,8 @@ export async function POST(request: NextRequest) {
     // Extract article content (from provided client HTML or server fetch)
     const extracted = await extractArticle(url, { html, fallbackTitle: title });
 
-    // Persist to SQLite
-    const article = db.createArticle({
+    // Persist to Database
+    const article = await db.createArticle({
       url: extracted.url,
       title: extracted.title,
       byline: extracted.byline,

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['node:sqlite', 'jsdom', '@mozilla/readability'],
+  serverExternalPackages: ['@libsql/client', 'jsdom', '@mozilla/readability'],
   reactStrictMode: true,
 };
 
