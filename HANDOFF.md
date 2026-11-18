@@ -170,7 +170,7 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
   - Modal with `pt-safe pb-safe` and scrollable content to ensure usability even when the iOS virtual keyboard is visible on 667px height devices.
   - Mobile input font-size configured to `16px` (`text-base md:text-sm`) to prevent iOS Safari auto-zooming.
 - **Offline Storage & Service Worker** ([`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts) & [`public/sw.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/public/sw.js)):
-  - Service Worker `pocketbox-v2` with **Network-First** strategy for HTML navigation requests (ensuring fresh deployments load immediately when online, falling back to cache when offline).
+  - Service Worker `pocketbox-v3` with **Network-First** strategy for HTML navigation requests (ensuring fresh deployments load immediately when online, falling back to cache when offline).
   - IndexedDB store (`pocketbox_offline`) that automatically caches articles when connected and serves them transparently when offline.
 
 ---

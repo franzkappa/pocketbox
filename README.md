@@ -27,11 +27,11 @@ It runs **locally on your Mac** with zero cloud subscription fees, provides an *
 3. **Web Interface & iPhone PWA (Offline-First & iOS Optimized)**:
    - Installable as a standalone app on iPhone via Safari/Firefox ("Add to Home Screen") without browser toolbars.
    - **Native iOS Safe Area & iPhone SE Optimization**:
-     - Status bar clearance with CSS safe areas (`env(safe-area-inset-top)`), ensuring navigation controls and action buttons never collide with the clock, Wi-Fi, or battery icons—even on classic bezel devices like **iPhone SE (2nd/3rd gen)** as well as notch/Dynamic Island devices.
+     - Status bar clearance with CSS safe areas (`env(safe-area-inset-top)`), guaranteed minimum 52px clearance on classic bezel devices like **iPhone SE (2nd/3rd gen)** to completely clear Apple's 50px `black-translucent` progressive blur/gradient scrim. Header controls, search input, and action buttons never collide with or get blurred under the status bar.
      - Responsive 375px compact navigation bar with auto-expanding search and horizontally scrollable filter chips.
      - Prevents iOS Safari input auto-zoom by enforcing optimal mobile font sizing.
      - Smooth touch handling (`touch-manipulation`, 40-44px tap targets, and `100dvh` viewport adaptation).
-   - **Full Offline Reading**: Automatically caches articles locally (IndexedDB / Service Worker `v2` with Network-First navigation) while connected to your home Wi-Fi. You can read all saved articles anywhere (on the subway, in airplane mode, or when your Mac is turned off).
+   - **Full Offline Reading**: Automatically caches articles locally (IndexedDB / Service Worker `v3` with Network-First navigation) while connected to your home Wi-Fi. You can read all saved articles anywhere (on the subway, in airplane mode, or when your Mac is turned off).
    - Distraction-free reader view with customizable typography: Serif (book style), Sans-serif (modern), Monospace, adjustable font size, and line spacing.
    - Reading themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
    - Reader progress bar neatly integrated along the bottom border of the header.
