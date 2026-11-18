@@ -1,5 +1,12 @@
 # PocketBox 📦
 
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
+[![SQLite](https://img.shields.io/badge/SQLite-node:sqlite-blue?style=flat-square&logo=sqlite)](https://nodejs.org/)
+[![Firefox](https://img.shields.io/badge/Firefox-WebExtension%20v3-orange?style=flat-square&logo=firefox-browser)](https://www.mozilla.org/firefox/)
+[![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
 **PocketBox** is a personal, private, 100% self-hosted "Read It Later" application inspired by Mozilla Pocket.  
 It runs **locally on your Mac** with zero cloud subscription fees, provides an **offline-first PWA** reading experience on iPhone, and synchronizes articles saved from Firefox (both on Mac and iPhone) leveraging **Firefox Sync** and a dedicated extension—even when links are saved while the Mac is powered off or sleeping.
 
@@ -40,7 +47,7 @@ It runs **locally on your Mac** with zero cloud subscription fees, provides an *
 │  - Firefox iOS: Save to "📥 PocketBox" bookmark folder │
 │  - Safari/PWA: Fullscreen Home Screen offline reader   │
 └───────────────────────────┬────────────────────────────┘
-                            │ Firefox Sync
+                            │ Firefox Sync (Encrypted)
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │                   MAC (Localhost)                      │
@@ -63,22 +70,38 @@ It runs **locally on your Mac** with zero cloud subscription fees, provides an *
 
 ## 🚀 Quick Start Guide
 
+### Prerequisites
+- **macOS** with Node.js v24+ (native `node:sqlite` support).
+- **Mozilla Firefox** on Mac and iPhone connected to the same free Firefox Sync account.
+- **Home Wi-Fi** network for initial local syncing and PWA installation.
+
+---
+
 ### 1. Launch the Server
-To start the local server anytime, simply run:
+
+To start the local PocketBox server, run the executable startup script from the project folder:
 ```bash
 ./run.sh
 ```
-or via npm:
+Or use npm directly:
 ```bash
+# Production mode (fastest)
+npm run build
 npm run start
+
+# Development mode with hot-reloading
+npm run dev
 ```
-The server will be accessible at:
+
+The server will be immediately accessible at:
 - **Mac Browser**: [http://localhost:3000](http://localhost:3000)
 - **Local Network (iPhone)**: `http://<your-mac-ip>:3000` (e.g. `http://192.168.1.19:3000`)
 
 ---
 
 ### 2. Install the Firefox Extension (Mac)
+
+The extension allows 1-click tab saving on your Mac and automatically processes the bookmark intake queue.
 
 1. Open **Firefox** on your Mac.
 2. In the URL bar, go to:
@@ -89,37 +112,101 @@ The server will be accessible at:
 4. Navigate to this project folder and select `firefox-extension/manifest.json`.
 5. The extension **PocketBox - Read It Later** is now active!
    - You will see the **📦 PocketBox** icon in your toolbar.
-   - The extension will automatically create or recognize the `📥 PocketBox` folder in your Firefox Bookmarks.
+   - The extension automatically checks and initializes the `📥 PocketBox` folder in your bookmarks.
 
 ---
 
 ### 3. Asynchronous Sync from iPhone (Mac-Sleep Solution)
 
-1. Make sure you are signed into **Firefox Sync** on both your Mac and your iPhone.
+1. Ensure you are signed into **Firefox Sync** on both your Mac and your iPhone.
 2. On your iPhone:
    - When browsing an article in Firefox iOS, tap the **Menu (☰)** > **Bookmark**.
    - Choose the `📥 PocketBox` folder.
-3. Even if your Mac was sleeping or powered off when you saved it:
+3. Even if your Mac was asleep or powered off when you saved it:
    - The moment your Mac wakes up and Firefox is open, Firefox Sync downloads the bookmark.
-   - The PocketBox extension automatically catches it, sends it to `http://localhost:3000/api/articles` for distraction-free extraction, and removes the bookmark from `📥 PocketBox` to keep your intake queue empty.
+   - The PocketBox extension detects it, sends it to `http://localhost:3000/api/articles` for clean full-text extraction, and deletes the bookmark from `📥 PocketBox` to keep your intake queue empty.
 
 ---
 
 ### 4. Install the Offline PWA on iPhone
 
-1. On your iPhone, open **Safari** (connected to your home Wi-Fi).
+1. On your iPhone, open **Safari** (connected to the same Wi-Fi as your Mac).
 2. Navigate to your Mac's local IP:
    ```
    http://192.168.1.19:3000
    ```
-   *(replace with your Mac's Wi-Fi IP address if different)*
-3. Tap the **Share** button in Safari (square with arrow pointing up).
+   *(To find your Mac's current IP address, run `ipconfig getifaddr en0` in Terminal).*
+3. Tap the **Share** button in Safari (square with an arrow pointing up).
 4. Select **"Add to Home Screen"** (Aggiungi a schermata Home).
 5. Name it **PocketBox** and tap **Add**.
-6. Open the newly created app icon on your iPhone Home Screen.
-   - It runs as a **fullscreen native-like standalone app**.
-   - Articles are automatically stored in IndexedDB locally.
-   - You can disconnect Wi-Fi or turn off your Mac and read all saved articles offline at any time!
+6. Launch **PocketBox** from your iPhone Home Screen:
+   - Opens as a **fullscreen native-like standalone app**.
+   - All articles and images are automatically synchronized into local **IndexedDB** storage.
+   - You can disconnect from Wi-Fi or turn off your Mac and read all saved articles offline anywhere.
+
+---
+
+## 🔌 REST API Reference
+
+The server exposes clean REST endpoints with full CORS support:
+
+### Articles
+
+#### `GET /api/articles`
+List articles with optional filters.
+- **Query Parameters**:
+  - `filter`: `inbox` (default), `archive`, `favorites`
+  - `folder_id`: Filter by folder ID (e.g. `f-tech`)
+  - `tag_id`: Filter by tag ID or name
+  - `q`: Search query string (searches title, excerpt, site name, text content)
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "articles": [...]
+  }
+  ```
+
+#### `POST /api/articles`
+Extract article content from a URL and store in SQLite.
+- **Request Body**:
+  ```json
+  {
+    "url": "https://example.com/article",
+    "folder_id": "f-tech",
+    "tags": ["reading", "tech"]
+  }
+  ```
+- **Response**: Returns HTTP 201 with the created article object.
+
+#### `GET /api/articles/[id]`
+Retrieve full article details, including clean `content_html` and full text.
+
+#### `PATCH /api/articles/[id]`
+Update article state.
+- **Request Body**:
+  ```json
+  {
+    "is_favorite": 1,
+    "is_archived": 0,
+    "folder_id": "f-work",
+    "tags": ["priority"]
+  }
+  ```
+
+#### `DELETE /api/articles/[id]`
+Permanently delete an article and its tag associations.
+
+---
+
+### Folders & Tags
+
+- `GET /api/folders` - List all folders with active article counts
+- `POST /api/folders` - Create a folder `{ "name": "AI", "color": "#8B5CF6" }`
+- `DELETE /api/folders/[id]` - Delete a folder
+- `GET /api/tags` - List all tags with article counts
+- `POST /api/tags` - Create a tag `{ "name": "research", "color": "#10B981" }`
+- `DELETE /api/tags/[id]` - Delete a tag
 
 ---
 
@@ -127,10 +214,13 @@ The server will be accessible at:
 
 ```
 new pocket/
-├── README.md                 # Project documentation & guide
-├── HANDOFF.md                # Fast-start specification
+├── README.md                 # Complete documentation & usage guide
+├── HANDOFF.md                # Fast-start & architecture handoff guide
 ├── run.sh                    # One-click startup script
 ├── package.json              # Unified Next.js full-stack configuration
+├── tsconfig.json             # TypeScript configuration
+├── next.config.mjs           # Next.js 15 config (server external packages)
+├── tailwind.config.ts        # Tailwind typography & reader theme settings
 ├── data/
 │   └── pocketbox.db          # Local SQLite database (WAL mode)
 ├── lib/
@@ -140,26 +230,36 @@ new pocket/
 │   ├── cors.ts               # API CORS middleware
 │   └── types.ts              # TypeScript interfaces
 ├── app/
-│   ├── layout.tsx            # PWA shell & service worker registration
+│   ├── layout.tsx            # PWA shell, meta tags, and Service Worker registration
 │   ├── page.tsx              # Main library view (Inbox, Archive, Favorites)
-│   ├── globals.css           # Reader & Tailwind styles
+│   ├── globals.css           # Reader & Tailwind base styling
 │   └── api/
 │       ├── articles/         # Article CRUD & extraction endpoints
 │       ├── folders/          # Folder management endpoints
 │       └── tags/             # Tag management endpoints
 ├── components/
-│   ├── Sidebar.tsx           # Responsive sidebar & mobile drawer
+│   ├── Sidebar.tsx           # Responsive sidebar & mobile touch drawer
 │   ├── ArticleCard.tsx       # Article preview card with quick actions
-│   ├── ReaderView.tsx        # Minimalist distraction-free reader
+│   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes)
 │   └── AddArticleModal.tsx   # Manual URL input modal
 ├── public/
-│   ├── manifest.json         # PWA Manifest
+│   ├── manifest.json         # Standalone PWA Manifest
 │   ├── sw.js                 # Service Worker for offline fallback
-│   └── icons/                # App & extension icons
+│   ├── favicon.svg           # Vector favicon
+│   └── icons/                # High-res PWA & Apple touch icons
 └── firefox-extension/        # Firefox WebExtension (Manifest v3)
-    ├── manifest.json
+    ├── manifest.json         # Extension manifest
     ├── background.js         # Bookmark listener & sync processor
     ├── popup.html            # 1-click toolbar action UI
     ├── popup.js              # Tab saving & queue trigger
-    └── icons/                # Extension toolbar icons
+    └── icons/                # Extension toolbar icons (16-128px)
 ```
+
+---
+
+## ❓ Troubleshooting & Tips
+
+- **Mac IP changed**: If your home router assigns a new local IP to your Mac, run `ipconfig getifaddr en0` in Terminal to check the new IP, and navigate to that address on your iPhone.
+- **Port 3000 in use**: If port 3000 is occupied, run `PORT=3001 ./run.sh` to start PocketBox on a different port.
+- **Reloading the Firefox Extension**: In Firefox, visit `about:debugging#/runtime/this-firefox` and click the **"Reload"** button next to PocketBox to refresh changes.
+- **Clearing Offline Data on iPhone**: If you ever want to reset the offline cache on your iPhone, in Safari or the PWA open the app and refresh while connected to your home network.
