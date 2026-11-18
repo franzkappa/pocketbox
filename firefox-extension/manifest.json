@@ -15,11 +15,13 @@
     "tabs",
     "storage",
     "notifications",
-    "alarms"
+    "alarms",
+    "scripting"
   ],
   "host_permissions": [
     "http://localhost:3000/*",
-    "http://127.0.0.1:3000/*"
+    "http://127.0.0.1:3000/*",
+    "<all_urls>"
   ],
   "background": {
     "scripts": ["background.js"]

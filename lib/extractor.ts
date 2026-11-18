@@ -11,27 +11,68 @@ export interface ExtractedArticle {
   site_name: string | null;
   lead_image_url: string | null;
   reading_time_minutes: number;
+  is_fallback?: boolean;
 }
 
-export async function extractArticle(targetUrl: string): Promise<ExtractedArticle> {
+export interface ExtractArticleOptions {
+  html?: string;
+  fallbackTitle?: string;
+}
+
+export async function extractArticle(
+  targetUrl: string,
+  options?: ExtractArticleOptions
+): Promise<ExtractedArticle> {
   const parsedTarget = new URL(targetUrl);
+  let finalUrl = targetUrl;
+  let html = options?.html;
 
-  const response = await fetch(targetUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(15000), // 15 second timeout
-  });
+  if (!html) {
+    try {
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch article: HTTP ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch article: HTTP ${response.status} ${response.statusText}`);
+      }
+
+      finalUrl = response.url || targetUrl;
+      html = await response.text();
+    } catch (fetchError: any) {
+      console.warn(`[Extractor] Fetch failed for ${targetUrl}:`, fetchError.message);
+
+      const isForbidden = fetchError.message?.includes('403');
+      const isUnauthorized = fetchError.message?.includes('401');
+      const reason = isForbidden
+        ? 'Protected site (HTTP 403 Forbidden - anti-bot or paywall)'
+        : isUnauthorized
+        ? 'Protected site (HTTP 401 Unauthorized)'
+        : (fetchError.message || 'Fetch failed');
+
+      const fallbackTitle = options?.fallbackTitle?.trim() || parsedTarget.hostname + parsedTarget.pathname;
+      const fallbackNotice = `<p><em>Unable to extract full content automatically: ${reason}.</em></p><p><a href="${targetUrl}" target="_blank" rel="noopener noreferrer">Click here to open and read the original article</a>.</p>`;
+
+      return {
+        url: targetUrl,
+        title: fallbackTitle,
+        byline: null,
+        excerpt: `Could not fetch content (${reason}).`,
+        content_html: fallbackNotice,
+        text_content: `Could not fetch content (${reason}). Open original link to view.`,
+        site_name: parsedTarget.hostname.replace(/^www\./, ''),
+        lead_image_url: null,
+        reading_time_minutes: 1,
+        is_fallback: true,
+      };
+    }
   }
-
-  const finalUrl = response.url || targetUrl;
-  const html = await response.text();
 
   // Create virtual DOM
   const dom = new JSDOM(html, { url: finalUrl });
@@ -71,7 +112,7 @@ export async function extractArticle(targetUrl: string): Promise<ExtractedArticl
 
   const parsed = reader.parse();
 
-  const title = (parsed?.title || ogTitle || doc.title || 'Untitled Article').trim();
+  const title = (parsed?.title || ogTitle || options?.fallbackTitle || doc.title || 'Untitled Article').trim();
   const byline = (parsed?.byline || metaAuthor || null)?.trim() || null;
   const excerpt = (parsed?.excerpt || ogDescription || '').trim();
   const textContent = parsed?.textContent?.trim() || '';

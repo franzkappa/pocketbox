@@ -295,6 +295,13 @@ export const db = {
 
   updateArticle(id: string, updates: Partial<{
     title: string;
+    byline: string | null;
+    excerpt: string | null;
+    content_html: string | null;
+    text_content: string | null;
+    site_name: string | null;
+    lead_image_url: string | null;
+    reading_time_minutes: number;
     is_read: number;
     is_favorite: number;
     is_archived: number;
@@ -308,6 +315,34 @@ export const db = {
     if (updates.title !== undefined) {
       fields.push('title = ?');
       params.push(updates.title);
+    }
+    if (updates.byline !== undefined) {
+      fields.push('byline = ?');
+      params.push(updates.byline);
+    }
+    if (updates.excerpt !== undefined) {
+      fields.push('excerpt = ?');
+      params.push(updates.excerpt);
+    }
+    if (updates.content_html !== undefined) {
+      fields.push('content_html = ?');
+      params.push(updates.content_html);
+    }
+    if (updates.text_content !== undefined) {
+      fields.push('text_content = ?');
+      params.push(updates.text_content);
+    }
+    if (updates.site_name !== undefined) {
+      fields.push('site_name = ?');
+      params.push(updates.site_name);
+    }
+    if (updates.lead_image_url !== undefined) {
+      fields.push('lead_image_url = ?');
+      params.push(updates.lead_image_url);
+    }
+    if (updates.reading_time_minutes !== undefined) {
+      fields.push('reading_time_minutes = ?');
+      params.push(updates.reading_time_minutes);
     }
     if (updates.is_read !== undefined) {
       fields.push('is_read = ?');

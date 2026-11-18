@@ -20,9 +20,14 @@ It runs **locally on your Mac** with zero cloud subscription fees, provides an *
    - Whenever your Mac wakes up and Firefox is open, the background extension automatically detects new bookmarks in that folder, sends them to the local PocketBox server for full-text extraction, and clears the queue folder.
    - On Firefox for Mac, a **1-click toolbar button** is also available to instantly save active tabs without navigating folders.
 
-2. **Native Firefox Reader Engine (`@mozilla/readability`)**:
+2. **Native Firefox Reader Engine (`@mozilla/readability`) & Anti-Bot Bypass**:
    - Strips ads, cookie prompts, newsletter popups, and clutter.
    - Extracts clean article text, author/byline, estimated reading time, and hero images using the exact engine that powers Firefox's native Reader View.
+   - **Client-Side DOM Extraction (Anti-Bot & Paywall Bypass)**:
+     - Sites protected by advanced anti-bot WAFs (such as DataDome or Cloudflare on *Libération*, *Le Monde*, etc.) block server-side `fetch()` with HTTP 403 Forbidden.
+     - When saving an active tab via the Firefox extension, PocketBox extracts `document.documentElement.outerHTML` directly from the authenticated, challenge-passed browser session.
+     - The local Readability engine parses this DOM directly with zero remote network requests, seamlessly preserving full article content.
+     - If a protected URL is queued via bookmarks when no tab is open, PocketBox saves the link gracefully with a fallback placeholder, and automatically upgrades to full text once saved from an active tab.
 
 3. **Web Interface & iPhone PWA (Offline-First & iOS Optimized)**:
    - Installable as a standalone app on iPhone via Safari/Firefox ("Add to Home Screen") without browser toolbars.
@@ -181,16 +186,18 @@ List articles with optional filters.
   ```
 
 #### `POST /api/articles`
-Extract article content from a URL and store in SQLite.
+Extract article content from a URL or pre-rendered client HTML and store in SQLite.
 - **Request Body**:
   ```json
   {
     "url": "https://example.com/article",
-    "folder_id": "f-tech",
-    "tags": ["reading", "tech"]
+    "html": "<html>...</html>", // (Optional) Client-rendered DOM to bypass 403 WAF blocks
+    "title": "Article Title",   // (Optional) Fallback title
+    "folder_id": "f-tech",      // (Optional)
+    "tags": ["reading", "tech"] // (Optional)
   }
   ```
-- **Response**: Returns HTTP 201 with the created article object.
+- **Response**: Returns HTTP 201 with the created article object (or HTTP 200 with `alreadyExists: true` if re-saving/updating).
 
 #### `GET /api/articles/[id]`
 Retrieve full article details, including clean `content_html` and full text.

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { url, folder_id, tags } = body;
+    const { url, html, title, folder_id, tags } = body;
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -55,6 +55,19 @@ export async function POST(request: NextRequest) {
       if (tags !== undefined) updates.tags = tags;
       if (existing.is_archived) updates.is_archived = 0;
 
+      // If existing article had fallback/placeholder content and client now provides rendered HTML:
+      if (html && (existing.content_html?.includes('Unable to extract full content') || !existing.content_html)) {
+        const reExtracted = await extractArticle(url, { html, fallbackTitle: title || existing.title });
+        updates.title = reExtracted.title;
+        updates.byline = reExtracted.byline;
+        updates.excerpt = reExtracted.excerpt;
+        updates.content_html = reExtracted.content_html;
+        updates.text_content = reExtracted.text_content;
+        updates.site_name = reExtracted.site_name;
+        updates.lead_image_url = reExtracted.lead_image_url;
+        updates.reading_time_minutes = reExtracted.reading_time_minutes;
+      }
+
       const updated = Object.keys(updates).length > 0 ? db.updateArticle(existing.id, updates) : existing;
       return NextResponse.json(
         { success: true, article: updated, alreadyExists: true },
@@ -62,8 +75,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract article content
-    const extracted = await extractArticle(url);
+    // Extract article content (from provided client HTML or server fetch)
+    const extracted = await extractArticle(url, { html, fallbackTitle: title });
 
     // Persist to SQLite
     const article = db.createArticle({

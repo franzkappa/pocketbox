@@ -72,12 +72,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? tagsInput.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean)
       : undefined;
 
+    // Extract rendered HTML directly from the active tab.
+    // This bypasses server-side 403 Forbidden blocks (DataDome, Cloudflare, Paywalls)
+    let pageHtml = null;
+    try {
+      if (browser.scripting && browser.scripting.executeScript && currentTab.id) {
+        const results = await browser.scripting.executeScript({
+          target: { tabId: currentTab.id },
+          func: () => document.documentElement.outerHTML,
+        });
+        if (results && results[0] && results[0].result) {
+          pageHtml = results[0].result;
+        }
+      } else if (browser.tabs && browser.tabs.executeScript && currentTab.id) {
+        const results = await browser.tabs.executeScript(currentTab.id, {
+          code: 'document.documentElement.outerHTML;',
+        });
+        if (results && results[0]) {
+          pageHtml = results[0];
+        }
+      }
+    } catch (extractErr) {
+      console.warn('[PocketBox] Client-side DOM extraction failed, falling back:', extractErr);
+    }
+
     try {
       const response = await fetch(`${API_BASE}/api/articles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: currentTab.url,
+          title: currentTab.title,
+          html: pageHtml || undefined,
           folder_id: folderId,
           tags: tags,
         }),

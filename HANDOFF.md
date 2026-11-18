@@ -132,7 +132,7 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
 | Method | Endpoint | Description | Query / Body Parameters |
 |---|---|---|---|
 | `GET` | `/api/articles` | List articles with filters | `?filter=inbox\|archive\|favorites&folder_id=...&tag_id=...&q=...` |
-| `POST` | `/api/articles` | Extract & save an article | `{ "url": "https://...", "folder_id": "...", "tags": ["tag1"] }` |
+| `POST` | `/api/articles` | Extract & save an article (from URL or pre-rendered client HTML) | `{ "url": "https://...", "html": "...", "title": "...", "folder_id": "...", "tags": ["tag1"] }` |
 | `GET` | `/api/articles/[id]` | Get single article with full HTML | None |
 | `PATCH` | `/api/articles/[id]` | Update article state | `{ "is_read": 1, "is_favorite": 1, "is_archived": 1, "folder_id": "..." }` |
 | `DELETE` | `/api/articles/[id]` | Delete article permanently | None |
@@ -178,15 +178,17 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
 
 ## 🦊 6. Firefox Extension Details (`firefox-extension/`)
 
-- **Manifest V3**: Configured for Firefox with Gecko ID `pocketbox@local.selfhosted`.
-- **Permissions**: `bookmarks`, `activeTab`, `tabs`, `storage`, `notifications`, `alarms`.
-- **Host Permissions**: `http://localhost:3000/*`, `http://127.0.0.1:3000/*`.
+- **Manifest V3**: Configured for Firefox with Gecko ID `pocketbox@local.selfhosted` (v1.1.0).
+- **Permissions**: `bookmarks`, `activeTab`, `tabs`, `storage`, `notifications`, `alarms`, `scripting`.
+- **Host Permissions**: `http://localhost:3000/*`, `http://127.0.0.1:3000/*`, `<all_urls>`.
 - **Background Worker** (`background.js`):
   - On startup and every 2 minutes (alarms API), checks the `📥 PocketBox` bookmarks folder.
-  - Ingests bookmarks into `http://localhost:3000/api/articles` and deletes them from the bookmark queue.
+  - Checks if any open browser tab matches the bookmark URL to capture client-rendered HTML before falling back to server-side fetch.
+  - Ingests bookmarks into `http://localhost:3000/api/articles` and deletes them from the bookmark queue upon success.
   - If server is unreachable, bookmarks remain intact for the next cycle.
 - **Toolbar Action Popup** (`popup.html`, `popup.js`):
   - Inspects active tab title & URL.
+  - **Client-Side DOM Extraction**: Injects `document.documentElement.outerHTML` from the active tab using `browser.scripting.executeScript`. This circumvents anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération*, sending the already-authenticated DOM directly to `/api/articles`.
   - Loads folders and tags dynamically from localhost.
   - 1-click "Save to PocketBox" button with success animations.
   - "Sync Bookmark Queue Now" manual trigger.
@@ -206,6 +208,10 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
    - On iOS standalone PWA, Apple applies a ~50px progressive blur scrim across the top with `black-translucent`. A CSS rule `@supports (-webkit-touch-callout: none) { @media all and (display-mode: standalone), all and (display-mode: fullscreen) { :root { --sat: max(env(safe-area-inset-top, 0px), 52px); } } }` together with synchronous `ios-standalone` detection in `<head>` guarantees at least 52px status bar clearance even on classic bezel devices like iPhone SE (2nd & 3rd gen), ensuring all labels, buttons, and text remain 100% crisp with zero blurring.
    - Text inputs across modals and search bars enforce `text-base` (16px) on mobile viewports to prevent iOS Safari from automatically zooming into the page on focus.
    - `public/sw.js` uses `pocketbox-v3` with Network-First navigation so that newly deployed builds take effect immediately upon reload.
+4. **Anti-Bot & Paywall Bypass (DataDome / Cloudflare)**:
+   - Paywalled news websites (such as *Libération*, *Le Monde*, *The New York Times*) deploy strict anti-bot WAFs (DataDome) that analyze TLS/JA3/JA4 fingerprints and HTTP/2 settings frames, rejecting server-side Node.js `fetch()` requests with `HTTP 403 Forbidden`.
+   - **Solution**: The PocketBox Firefox extension uses client-side DOM extraction via `browser.scripting.executeScript` to send `document.documentElement.outerHTML` from the user's active browser tab directly to `/api/articles`. The backend's Readability engine processes this pre-authenticated, challenge-passed DOM without making any outbound network requests.
+   - **Graceful Fallback**: If a protected URL is ingested via the background bookmark queue without an open tab, the backend falls back gracefully to save the link with a placeholder rather than failing or looping indefinitely. If the user later saves the article while reading it in Firefox, `/api/articles` automatically updates the existing record with the full content.
 
 ---
 

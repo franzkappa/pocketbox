@@ -57,10 +57,34 @@ async function processQueue() {
 
       try {
         console.log(`[PocketBox] Forwarding bookmark to local server: ${bookmark.url}`);
+
+        // Try to capture rendered DOM if this URL is open in any browser tab
+        let tabHtml = null;
+        try {
+          if (browser.scripting && browser.scripting.executeScript) {
+            const openTabs = await browser.tabs.query({ url: bookmark.url });
+            if (openTabs && openTabs.length > 0 && openTabs[0].id) {
+              const injection = await browser.scripting.executeScript({
+                target: { tabId: openTabs[0].id },
+                func: () => document.documentElement.outerHTML,
+              });
+              if (injection && injection[0] && injection[0].result) {
+                tabHtml = injection[0].result;
+              }
+            }
+          }
+        } catch (tabErr) {
+          console.warn(`[PocketBox] Could not extract from open tab for bookmark:`, tabErr);
+        }
+
         const response = await fetch(`${API_BASE}/api/articles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: bookmark.url }),
+          body: JSON.stringify({
+            url: bookmark.url,
+            title: bookmark.title,
+            html: tabHtml || undefined,
+          }),
         });
 
         if (response.ok) {
