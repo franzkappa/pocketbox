@@ -34,6 +34,17 @@ export default function RootLayout({
     <html lang="en" className="h-full bg-slate-900">
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                if (('standalone' in window.navigator && window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches) {
+                  document.documentElement.classList.add('ios-standalone');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
       </head>
       <body className="h-full flex flex-col antialiased bg-slate-950 text-slate-100 select-none overflow-hidden">
         {children}

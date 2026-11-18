@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pocketbox-v1';
+const CACHE_NAME = 'pocketbox-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -74,7 +74,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle static assets & page navigations (Stale while revalidate)
+  // Handle page navigations (Network First, Cache Fallback for offline reading)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/');
+          });
+        })
+    );
+    return;
+  }
+
+  // Handle static assets (Stale while revalidate)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)

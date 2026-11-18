@@ -113,19 +113,20 @@ export function ArticleCard({
           </div>
 
           {/* Quick Action Buttons */}
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
             {/* Favorite Toggle */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleFavorite(article);
               }}
-              className={`p-1.5 rounded-lg transition ${
+              className={`p-2 rounded-lg transition touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 ${
                 isFavorite
                   ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20'
                   : 'text-slate-400 hover:text-amber-400 hover:bg-slate-800'
               }`}
               title={isFavorite ? 'Favorited' : 'Favorite'}
+              aria-label={isFavorite ? 'Favorited' : 'Favorite'}
             >
               <Bookmark className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
             </button>
@@ -136,12 +137,13 @@ export function ArticleCard({
                 e.stopPropagation();
                 onToggleArchive(article);
               }}
-              className={`p-1.5 rounded-lg transition ${
+              className={`p-2 rounded-lg transition touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 ${
                 isArchived
                   ? 'text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20'
                   : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-800'
               }`}
               title={isArchived ? 'Move to Inbox' : 'Archive'}
+              aria-label={isArchived ? 'Move to Inbox' : 'Archive'}
             >
               {isArchived ? (
                 <ArchiveRestore className="w-3.5 h-3.5" />
@@ -158,8 +160,9 @@ export function ArticleCard({
                   onDelete(article);
                 }
               }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
+              className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95"
               title="Delete"
+              aria-label="Delete"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

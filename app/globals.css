@@ -5,6 +5,66 @@
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* iOS Standalone PWA & WebKit: ensure at least 52px status bar clearance on iPhone SE
+   and non-notched devices to completely clear Apple's 50px black-translucent blur scrim */
+@supports (-webkit-touch-callout: none) {
+  @media all and (display-mode: standalone), all and (display-mode: fullscreen) {
+    :root {
+      --sat: max(env(safe-area-inset-top, 0px), 52px);
+    }
+  }
+}
+
+html.ios-standalone {
+  --sat: max(env(safe-area-inset-top, 0px), 52px);
+}
+
+/* Safe area utility classes */
+.pt-safe {
+  padding-top: var(--sat);
+}
+
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+
+.pl-safe {
+  padding-left: var(--sal);
+}
+
+.pr-safe {
+  padding-right: var(--sar);
+}
+
+.top-safe {
+  top: var(--sat);
+}
+
+.bottom-safe {
+  bottom: var(--sab);
+}
+
+.min-h-screen-safe {
+  min-height: calc(100dvh - var(--sat) - var(--sab));
+}
+
+.h-screen-safe {
+  height: calc(100dvh - var(--sat) - var(--sab));
+}
+
+/* Hide scrollbar for horizontal pill lists */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 body {

@@ -80,8 +80,8 @@ export function Sidebar({
 
   const sidebarContent = (
     <div className="flex flex-col h-full select-none">
-      {/* Brand Header */}
-      <div className="p-5 flex items-center justify-between border-b border-slate-800/80">
+      {/* Brand Header with Safe Area Clearance */}
+      <div className="p-4 sm:p-5 pt-[calc(var(--sat)+1rem)] md:pt-5 flex items-center justify-between border-b border-slate-800/80">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-500 to-rose-600 flex items-center justify-center shadow-lg shadow-rose-500/20">
             <span className="text-white text-base font-bold">📦</span>
@@ -96,7 +96,7 @@ export function Sidebar({
         {/* Mobile close button */}
         <button
           onClick={onClose}
-          className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center active:scale-95"
           aria-label="Close menu"
         >
           <X className="w-5 h-5" />
@@ -167,7 +167,7 @@ export function Sidebar({
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Folder name..."
                 autoFocus
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                className="w-full px-2.5 py-1.5 text-base md:text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
               />
             </form>
           )}
@@ -239,7 +239,7 @@ export function Sidebar({
                 onChange={(e) => setNewTagName(e.target.value)}
                 placeholder="Tag name..."
                 autoFocus
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                className="w-full px-2.5 py-1.5 text-base md:text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
               />
             </form>
           )}
@@ -254,7 +254,7 @@ export function Sidebar({
                     onSelectTag(isSelected ? undefined : tag.id);
                     onClose();
                   }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition touch-manipulation ${
                     isSelected
                       ? 'bg-rose-500 text-white shadow-sm'
                       : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
@@ -272,8 +272,8 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Footer Connection Status */}
-      <div className="p-3 border-t border-slate-800/80 bg-slate-900/50">
+      {/* Footer Connection Status with Safe Area Clearance */}
+      <div className="p-3 pb-[calc(var(--sab)+0.75rem)] border-t border-slate-800/80 bg-slate-900/50">
         <div className="flex items-center gap-2 px-2 py-1 text-xs text-slate-400">
           {isOnline ? (
             <>
@@ -298,14 +298,14 @@ export function Sidebar({
         {sidebarContent}
       </aside>
 
-      {/* Mobile Slide-out Drawer */}
+      {/* Mobile Slide-out Drawer (Optimized for iPhone SE) */}
       {isOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={onClose}
           />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-slate-900 border-r border-slate-800 shadow-2xl">
+          <div className="relative flex-1 flex flex-col max-w-[280px] xs:max-w-xs w-full bg-slate-900 border-r border-slate-800 shadow-2xl">
             {sidebarContent}
           </div>
         </div>

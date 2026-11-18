@@ -269,7 +269,7 @@ export default function HomePage() {
   }, [currentFilter, activeFolder, activeTag]);
 
   return (
-    <div className="flex h-screen w-full bg-slate-950 overflow-hidden font-sans">
+    <div className="flex h-[100dvh] w-full bg-slate-950 overflow-hidden font-sans">
       {/* Desktop / Mobile Sidebar */}
       <Sidebar
         currentFilter={currentFilter}
@@ -300,83 +300,88 @@ export default function HomePage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Top Navbar */}
-        <header className="h-16 px-4 md:px-6 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md flex items-center justify-between gap-3 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            {/* Hamburger button for mobile */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden p-2 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition"
-              aria-label="Open sidebar"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+        {/* Top Navbar with Safe Area Clearance for iOS Status Bar */}
+        <header className="pt-safe border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md flex-shrink-0 z-30 transition-all">
+          <div className="h-14 sm:h-16 px-3 sm:px-4 md:px-6 flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              {/* Hamburger button for mobile */}
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden p-2 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center shrink-0 active:scale-95"
+                aria-label="Open sidebar"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-            <h1 className="text-base md:text-lg font-bold text-white flex items-center gap-2 truncate">
-              {viewTitle}
-              {articles.length > 0 && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
-                  {articles.length}
-                </span>
-              )}
-            </h1>
-          </div>
-
-          {/* Search Bar & Add Button */}
-          <div className="flex items-center gap-2.5">
-            <div className="relative w-40 sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search articles..."
-                className="w-full pl-9 pr-8 py-2 text-xs md:text-sm bg-slate-950/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-rose-500 transition"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <h1 className="text-sm sm:text-base md:text-lg font-bold text-white flex items-center gap-1.5 sm:gap-2 truncate min-w-0">
+                <span className="truncate">{viewTitle}</span>
+                {articles.length > 0 && (
+                  <span className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 shrink-0">
+                    {articles.length}
+                  </span>
+                )}
+              </h1>
             </div>
 
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs md:text-sm font-semibold shadow-lg shadow-rose-600/20 transition active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add URL</span>
-            </button>
+            {/* Search Bar & Add Button (Optimized for iPhone SE 375px width) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative w-32 xs:w-40 sm:w-64 transition-all duration-150 focus-within:w-40 sm:focus-within:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-base md:text-sm bg-slate-950/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-rose-500 transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 sm:right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white touch-manipulation"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs md:text-sm font-semibold shadow-lg shadow-rose-600/20 transition active:scale-95 shrink-0 min-w-[40px] min-h-[40px] touch-manipulation"
+                title="Add URL"
+                aria-label="Add URL"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add URL</span>
+              </button>
+            </div>
           </div>
         </header>
 
-        {/* Active Filter Pills (if folder or tag active) */}
+        {/* Active Filter Pills (Horizontal scrollable on small screens) */}
         {(selectedFolderId || selectedTagId || searchQuery) && (
-          <div className="px-4 md:px-6 py-2.5 bg-slate-900/40 border-b border-slate-800/60 flex items-center gap-2 text-xs">
-            <span className="text-slate-400">Filtered by:</span>
+          <div className="px-3 sm:px-4 md:px-6 py-2 bg-slate-900/40 border-b border-slate-800/60 flex items-center gap-1.5 sm:gap-2 text-xs overflow-x-auto no-scrollbar whitespace-nowrap">
+            <span className="text-slate-400 shrink-0">Filtered:</span>
             {activeFolder && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 font-medium">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 font-medium shrink-0">
                 Folder: {activeFolder.name}
-                <button onClick={() => setSelectedFolderId(undefined)} className="hover:text-white">
+                <button onClick={() => setSelectedFolderId(undefined)} className="hover:text-white p-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
             )}
             {activeTag && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 font-medium">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 font-medium shrink-0">
                 #{activeTag.name}
-                <button onClick={() => setSelectedTagId(undefined)} className="hover:text-white">
+                <button onClick={() => setSelectedTagId(undefined)} className="hover:text-white p-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
             )}
             {searchQuery && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-medium">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-medium shrink-0">
                 Query: "{searchQuery}"
-                <button onClick={() => setSearchQuery('')} className="hover:text-white">
+                <button onClick={() => setSearchQuery('')} className="hover:text-white p-0.5">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -387,15 +392,15 @@ export default function HomePage() {
                 setSelectedTagId(undefined);
                 setSearchQuery('');
               }}
-              className="ml-auto text-slate-400 hover:text-white underline text-[11px]"
+              className="ml-auto text-slate-400 hover:text-white underline text-[11px] shrink-0 pl-2"
             >
-              Clear filters
+              Clear
             </button>
           </div>
         )}
 
         {/* Article Cards Grid / Scrollable Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-4 md:p-6 pb-[calc(var(--sab)+1.5rem)] overscroll-contain">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
               <RefreshCw className="w-6 h-6 animate-spin text-rose-500" />

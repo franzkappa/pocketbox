@@ -24,11 +24,17 @@ It runs **locally on your Mac** with zero cloud subscription fees, provides an *
    - Strips ads, cookie prompts, newsletter popups, and clutter.
    - Extracts clean article text, author/byline, estimated reading time, and hero images using the exact engine that powers Firefox's native Reader View.
 
-3. **Web Interface & iPhone PWA (Offline-First)**:
+3. **Web Interface & iPhone PWA (Offline-First & iOS Optimized)**:
    - Installable as a standalone app on iPhone via Safari/Firefox ("Add to Home Screen") without browser toolbars.
-   - **Full Offline Reading**: Automatically caches articles locally (IndexedDB / Service Worker) while connected to your home Wi-Fi. You can read all saved articles anywhere (on the subway, in airplane mode, or when your Mac is turned off).
+   - **Native iOS Safe Area & iPhone SE Optimization**:
+     - Status bar clearance with CSS safe areas (`env(safe-area-inset-top)`), ensuring navigation controls and action buttons never collide with the clock, Wi-Fi, or battery icons—even on classic bezel devices like **iPhone SE (2nd/3rd gen)** as well as notch/Dynamic Island devices.
+     - Responsive 375px compact navigation bar with auto-expanding search and horizontally scrollable filter chips.
+     - Prevents iOS Safari input auto-zoom by enforcing optimal mobile font sizing.
+     - Smooth touch handling (`touch-manipulation`, 40-44px tap targets, and `100dvh` viewport adaptation).
+   - **Full Offline Reading**: Automatically caches articles locally (IndexedDB / Service Worker `v2` with Network-First navigation) while connected to your home Wi-Fi. You can read all saved articles anywhere (on the subway, in airplane mode, or when your Mac is turned off).
    - Distraction-free reader view with customizable typography: Serif (book style), Sans-serif (modern), Monospace, adjustable font size, and line spacing.
    - Reading themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
+   - Reader progress bar neatly integrated along the bottom border of the header.
 
 4. **Rich Organization**:
    - **Folders / Topics**: Organize articles by subject (*Technology*, *Work*, *Long Reads*, *Personal*).
@@ -262,4 +268,5 @@ new pocket/
 - **Mac IP changed**: If your home router assigns a new local IP to your Mac, run `ipconfig getifaddr en0` in Terminal to check the new IP, and navigate to that address on your iPhone.
 - **Port 3000 in use**: If port 3000 is occupied, run `PORT=3001 ./run.sh` to start PocketBox on a different port.
 - **Reloading the Firefox Extension**: In Firefox, visit `about:debugging#/runtime/this-firefox` and click the **"Reload"** button next to PocketBox to refresh changes.
+- **Updating the iPhone PWA & Service Worker**: When you rebuild or update the server, close the standalone PWA on your iPhone by swiping it away from the App Switcher, then reopen it. The Service Worker (`pocketbox-v3`) will automatically activate the new version. If testing directly in Safari, a simple page refresh will fetch the updated version (or clear site data under *Settings > Safari > Advanced > Website Data*).
 - **Clearing Offline Data on iPhone**: If you ever want to reset the offline cache on your iPhone, in Safari or the PWA open the app and refresh while connected to your home network.

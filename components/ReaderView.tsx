@@ -159,191 +159,198 @@ export function ReaderView({
     <div
       className={`fixed inset-0 z-50 flex flex-col ${currentTheme.bg} ${currentTheme.text} transition-colors duration-200`}
     >
-      {/* Scroll Progress Bar at very top */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-transparent z-50">
-        <div
-          className="h-full bg-rose-500 transition-all duration-150"
-          style={{ width: `${scrollProgress}%` }}
-        />
-      </div>
-
-      {/* Top Header Bar */}
+      {/* Top Header Bar with Safe Area Clearance */}
       <header
-        className={`sticky top-0 z-40 px-4 py-3 flex items-center justify-between border-b backdrop-blur-md ${currentTheme.header}`}
+        className={`sticky top-0 z-40 pt-safe border-b backdrop-blur-md transition-colors ${currentTheme.header}`}
       >
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/10 transition text-sm font-semibold"
-          title="Back to library (Esc)"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Library</span>
-        </button>
+        <div className="h-12 sm:h-14 px-3 sm:px-4 flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-black/10 transition text-sm font-semibold touch-manipulation min-h-[38px] min-w-[38px]"
+            title="Back to library (Esc)"
+            aria-label="Back to library"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Library</span>
+          </button>
 
-        {/* Reader Center Title (compact) */}
-        <div className="hidden md:flex flex-col items-center max-w-sm truncate text-center">
-          <span className="text-xs font-semibold truncate opacity-80">{article.title}</span>
-          <span className="text-[10px] opacity-60 truncate">
-            {article.site_name || new URL(article.url).hostname}
-          </span>
-        </div>
-
-        {/* Right Action Icons */}
-        <div className="flex items-center gap-1.5">
-          {/* Typography & Theme Popover Toggle */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="p-2 rounded-xl hover:bg-black/10 transition"
-              title="Typography & Theme settings"
-            >
-              <Type className="w-4 h-4" />
-            </button>
-
-            {/* Typography Popover */}
-            {showSettings && (
-              <div
-                className={`absolute right-0 mt-2 w-64 p-4 rounded-2xl shadow-2xl border ${currentTheme.card} ${currentTheme.border} ${currentTheme.text} z-50 animate-fade-in`}
-              >
-                <div className="text-xs font-bold uppercase tracking-wider mb-3 opacity-60">
-                  Reader Appearance
-                </div>
-
-                {/* Theme selection */}
-                <div className="mb-4">
-                  <div className="text-xs font-semibold mb-2">Theme</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    <button
-                      onClick={() => updateTheme('paper')}
-                      className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#FCFCFC] text-[#1C1C1E] ${
-                        theme === 'paper' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-slate-300'
-                      }`}
-                      title="Light"
-                    >
-                      Aa
-                    </button>
-                    <button
-                      onClick={() => updateTheme('sepia')}
-                      className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#F8F1E5] text-[#3E2723] ${
-                        theme === 'sepia' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-[#EBDCC7]'
-                      }`}
-                      title="Sepia"
-                    >
-                      Aa
-                    </button>
-                    <button
-                      onClick={() => updateTheme('slate')}
-                      className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#181C22] text-[#DDE2E8] ${
-                        theme === 'slate' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-[#262D37]'
-                      }`}
-                      title="Slate"
-                    >
-                      Aa
-                    </button>
-                    <button
-                      onClick={() => updateTheme('oled')}
-                      className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#000000] text-[#EDEDED] ${
-                        theme === 'oled' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-[#262D37]'
-                      }`}
-                      title="OLED Pure Black"
-                    >
-                      Aa
-                    </button>
-                  </div>
-                </div>
-
-                {/* Font selection */}
-                <div className="mb-4">
-                  <div className="text-xs font-semibold mb-2">Font Style</div>
-                  <div className="grid grid-cols-3 gap-1.5 text-xs font-medium">
-                    <button
-                      onClick={() => updateFontFamily('serif')}
-                      className={`py-1.5 px-2 rounded-lg font-serif border ${
-                        fontFamily === 'serif' ? 'bg-rose-500 text-white border-rose-500' : 'border-black/10'
-                      }`}
-                    >
-                      Serif
-                    </button>
-                    <button
-                      onClick={() => updateFontFamily('sans')}
-                      className={`py-1.5 px-2 rounded-lg font-sans border ${
-                        fontFamily === 'sans' ? 'bg-rose-500 text-white border-rose-500' : 'border-black/10'
-                      }`}
-                    >
-                      Sans
-                    </button>
-                    <button
-                      onClick={() => updateFontFamily('mono')}
-                      className={`py-1.5 px-2 rounded-lg font-mono border ${
-                        fontFamily === 'mono' ? 'bg-rose-500 text-white border-rose-500' : 'border-black/10'
-                      }`}
-                    >
-                      Mono
-                    </button>
-                  </div>
-                </div>
-
-                {/* Font size adjustment */}
-                <div>
-                  <div className="text-xs font-semibold mb-2 flex justify-between">
-                    <span>Size</span>
-                    <span className="opacity-60">{fontSize}px</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateFontSize(-1)}
-                      className="flex-1 py-1.5 rounded-lg border border-black/10 hover:bg-black/10 flex items-center justify-center font-semibold text-xs"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => updateFontSize(1)}
-                      className="flex-1 py-1.5 rounded-lg border border-black/10 hover:bg-black/10 flex items-center justify-center font-semibold text-xs"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+          {/* Reader Center Title (compact) */}
+          <div className="hidden md:flex flex-col items-center max-w-sm truncate text-center">
+            <span className="text-xs font-semibold truncate opacity-80">{article.title}</span>
+            <span className="text-[10px] opacity-60 truncate">
+              {article.site_name || new URL(article.url).hostname}
+            </span>
           </div>
 
-          {/* Toggle Favorite */}
-          <button
-            onClick={() => onToggleFavorite(article)}
-            className={`p-2 rounded-xl hover:bg-black/10 transition ${
-              isFavorite ? 'text-amber-500' : 'opacity-80'
-            }`}
-            title={isFavorite ? 'Remove from favorites' : 'Favorite'}
-          >
-            <Bookmark className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-          </button>
+          {/* Right Action Icons */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* Typography & Theme Popover Toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center"
+                title="Typography & Theme settings"
+                aria-label="Typography settings"
+              >
+                <Type className="w-4 h-4" />
+              </button>
 
-          {/* Toggle Archive */}
-          <button
-            onClick={() => onToggleArchive(article)}
-            className={`p-2 rounded-xl hover:bg-black/10 transition ${
-              isArchived ? 'text-emerald-500' : 'opacity-80'
-            }`}
-            title={isArchived ? 'Move to Inbox' : 'Archive article'}
-          >
-            {isArchived ? (
-              <ArchiveRestore className="w-4 h-4" />
-            ) : (
-              <Archive className="w-4 h-4" />
-            )}
-          </button>
+              {/* Typography Popover */}
+              {showSettings && (
+                <div
+                  className={`absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] p-4 rounded-2xl shadow-2xl border ${currentTheme.card} ${currentTheme.border} ${currentTheme.text} z-50 animate-fade-in`}
+                >
+                  <div className="text-xs font-bold uppercase tracking-wider mb-3 opacity-60">
+                    Reader Appearance
+                  </div>
 
-          {/* Open Original Link */}
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-xl hover:bg-black/10 transition opacity-80"
-            title="Open original website"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+                  {/* Theme selection */}
+                  <div className="mb-4">
+                    <div className="text-xs font-semibold mb-2">Theme</div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <button
+                        onClick={() => updateTheme('paper')}
+                        className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#FCFCFC] text-[#1C1C1E] ${
+                          theme === 'paper' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-slate-300'
+                        }`}
+                        title="Light"
+                      >
+                        Aa
+                      </button>
+                      <button
+                        onClick={() => updateTheme('sepia')}
+                        className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#F8F1E5] text-[#3E2723] ${
+                          theme === 'sepia' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-[#EBDCC7]'
+                        }`}
+                        title="Sepia"
+                      >
+                        Aa
+                      </button>
+                      <button
+                        onClick={() => updateTheme('slate')}
+                        className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#181C22] text-[#DDE2E8] ${
+                          theme === 'slate' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-[#262D37]'
+                        }`}
+                        title="Slate"
+                      >
+                        Aa
+                      </button>
+                      <button
+                        onClick={() => updateTheme('oled')}
+                        className={`h-9 rounded-xl border flex items-center justify-center font-bold text-xs bg-[#000000] text-[#EDEDED] ${
+                          theme === 'oled' ? 'ring-2 ring-rose-500 border-rose-500' : 'border-[#262D37]'
+                        }`}
+                        title="OLED Pure Black"
+                      >
+                        Aa
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Font selection */}
+                  <div className="mb-4">
+                    <div className="text-xs font-semibold mb-2">Font Style</div>
+                    <div className="grid grid-cols-3 gap-1.5 text-xs font-medium">
+                      <button
+                        onClick={() => updateFontFamily('serif')}
+                        className={`py-1.5 px-2 rounded-lg font-serif border ${
+                          fontFamily === 'serif' ? 'bg-rose-500 text-white border-rose-500' : 'border-black/10'
+                        }`}
+                      >
+                        Serif
+                      </button>
+                      <button
+                        onClick={() => updateFontFamily('sans')}
+                        className={`py-1.5 px-2 rounded-lg font-sans border ${
+                          fontFamily === 'sans' ? 'bg-rose-500 text-white border-rose-500' : 'border-black/10'
+                        }`}
+                      >
+                        Sans
+                      </button>
+                      <button
+                        onClick={() => updateFontFamily('mono')}
+                        className={`py-1.5 px-2 rounded-lg font-mono border ${
+                          fontFamily === 'mono' ? 'bg-rose-500 text-white border-rose-500' : 'border-black/10'
+                        }`}
+                      >
+                        Mono
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Font size adjustment */}
+                  <div>
+                    <div className="text-xs font-semibold mb-2 flex justify-between">
+                      <span>Size</span>
+                      <span className="opacity-60">{fontSize}px</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateFontSize(-1)}
+                        className="flex-1 py-1.5 rounded-lg border border-black/10 hover:bg-black/10 flex items-center justify-center font-semibold text-xs touch-manipulation min-h-[36px]"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => updateFontSize(1)}
+                        className="flex-1 py-1.5 rounded-lg border border-black/10 hover:bg-black/10 flex items-center justify-center font-semibold text-xs touch-manipulation min-h-[36px]"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Toggle Favorite */}
+            <button
+              onClick={() => onToggleFavorite(article)}
+              className={`p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center ${
+                isFavorite ? 'text-amber-500' : 'opacity-80'
+              }`}
+              title={isFavorite ? 'Remove from favorites' : 'Favorite'}
+              aria-label="Favorite"
+            >
+              <Bookmark className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+            </button>
+
+            {/* Toggle Archive */}
+            <button
+              onClick={() => onToggleArchive(article)}
+              className={`p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center ${
+                isArchived ? 'text-emerald-500' : 'opacity-80'
+              }`}
+              title={isArchived ? 'Move to Inbox' : 'Archive article'}
+              aria-label="Archive"
+            >
+              {isArchived ? (
+                <ArchiveRestore className="w-4 h-4" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Open Original Link */}
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition opacity-80 touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center"
+              title="Open original website"
+              aria-label="Open original website"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+
+        {/* Scroll Progress Bar along header bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/5 dark:bg-white/10">
+          <div
+            className="h-full bg-rose-500 transition-all duration-150"
+            style={{ width: `${scrollProgress}%` }}
+          />
         </div>
       </header>
 
@@ -353,7 +360,7 @@ export function ReaderView({
         onClick={() => {
           if (showSettings) setShowSettings(false);
         }}
-        className="flex-1 overflow-y-auto px-4 py-8 md:py-12"
+        className="flex-1 overflow-y-auto px-4 py-6 md:py-12 pb-[calc(var(--sab)+3rem)] overscroll-contain"
       >
         <div className="max-w-[680px] mx-auto">
           {/* Article Header Metadata */}

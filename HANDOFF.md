@@ -148,11 +148,13 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
 
 - **App Shell** ([`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx)):
   - Top navigation bar with instant live search and "+ Add URL" quick modal.
-  - Active filter pills showing active folder, tag, or search term with one-click clear.
-  - Responsive layout: desktop persistent sidebar, mobile slide-out touch drawer.
+  - Safe Area top inset support (`.pt-safe`), ensuring elements are never placed under the iOS status bar (clock, battery, Wi-Fi) on iPhone SE (2nd/3rd gen) and notch/Dynamic Island devices.
+  - Responsive layout optimized for 375px screens: responsive search bar (`w-32` expanding on focus), horizontally scrollable filter chips with one-click clear.
+  - Dynamic viewport sizing (`h-[100dvh]`) preventing layout shift from mobile Safari toolbars.
+  - Responsive layout: desktop persistent sidebar, mobile slide-out touch drawer (`max-w-[280px]` with safe area clearance).
 - **Article Cards** ([`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx)):
   - Thumbnail preview, domain name, estimated reading time, folder/tag badges, date saved.
-  - One-tap quick actions: Favorite, Archive, Delete.
+  - One-tap quick actions: Favorite, Archive, Delete with min 34px tap targets and `touch-manipulation`.
 - **Distraction-Free Reader** ([`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx)):
   - 4 themes:
     1. **Paper Light**: Crisp reading paper (`#FCFCFC`, text `#1C1C1E`)
@@ -161,9 +163,14 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
     4. **Pure OLED Black**: Pitch black for OLED screens (`#000000`, text `#EDEDED`)
   - Typography controls: **Serif** (Charter/Georgia), **Sans** (System/Inter), **Mono**.
   - Font size adjustment (`14px` - `28px`) persisted in `localStorage`.
-  - Reading progress bar pinned to the top of the viewport.
+  - Header with `pt-safe` and reading progress bar positioned at the bottom edge of the header for optimal visibility.
+  - Reading container with bottom safe area clearance (`pb-[calc(var(--sab)+3rem)]`) and `overscroll-contain`.
   - Keyboard shortcuts: `Escape` to close reader.
-- **Offline Storage** ([`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts)):
+- **Add Article Modal** ([`components/AddArticleModal.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/AddArticleModal.tsx)):
+  - Modal with `pt-safe pb-safe` and scrollable content to ensure usability even when the iOS virtual keyboard is visible on 667px height devices.
+  - Mobile input font-size configured to `16px` (`text-base md:text-sm`) to prevent iOS Safari auto-zooming.
+- **Offline Storage & Service Worker** ([`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts) & [`public/sw.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/public/sw.js)):
+  - Service Worker `pocketbox-v2` with **Network-First** strategy for HTML navigation requests (ensuring fresh deployments load immediately when online, falling back to cache when offline).
   - IndexedDB store (`pocketbox_offline`) that automatically caches articles when connected and serves them transparently when offline.
 
 ---
@@ -192,8 +199,12 @@ All endpoints support CORS (`*`) for cross-origin extension requests and return 
    - When mapping row objects in TypeScript, cast using `as unknown as (Article & { ... })[]` because `node:sqlite` outputs `Record<string, SQLOutputValue>`.
 2. **CORS on API Endpoints**:
    - The Firefox extension runs with an `moz-extension://` origin. Route handlers implement OPTIONS and return `Access-Control-Allow-Origin: *` via `lib/cors.ts`.
-3. **PWA Standalone Display on iOS**:
-   - `app/layout.tsx` includes `viewportFit: 'cover'`, `apple-mobile-web-app-capable: yes`, and `black-translucent` status bar for notch handling on modern iPhones.
+3. **PWA Standalone Display & Safe Areas on iOS**:
+   - `app/layout.tsx` includes `viewportFit: 'cover'`, `apple-mobile-web-app-capable: yes`, and `black-translucent` status bar.
+   - To prevent content from overlapping the iOS status bar (clock, battery, Wi-Fi) and Apple's progressive blur/gradient scrim, CSS safe area variables `--sat`, `--sab` and utility class `.pt-safe` are declared in `app/globals.css`.
+   - On iOS standalone PWA, Apple applies a ~50px progressive blur scrim across the top with `black-translucent`. A CSS rule `@supports (-webkit-touch-callout: none) { @media all and (display-mode: standalone), all and (display-mode: fullscreen) { :root { --sat: max(env(safe-area-inset-top, 0px), 52px); } } }` together with synchronous `ios-standalone` detection in `<head>` guarantees at least 52px status bar clearance even on classic bezel devices like iPhone SE (2nd & 3rd gen), ensuring all labels, buttons, and text remain 100% crisp with zero blurring.
+   - Text inputs across modals and search bars enforce `text-base` (16px) on mobile viewports to prevent iOS Safari from automatically zooming into the page on focus.
+   - `public/sw.js` uses `pocketbox-v3` with Network-First navigation so that newly deployed builds take effect immediately upon reload.
 
 ---
 
