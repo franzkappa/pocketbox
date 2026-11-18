@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "PocketBox - Read It Later",
+  "version": "1.0.0",
+  "description": "Asynchronous sync via Firefox bookmarks & 1-click tab saving for local PocketBox",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pocketbox@local.selfhosted",
+      "strict_min_version": "109.0"
+    }
+  },
+  "permissions": [
+    "bookmarks",
+    "activeTab",
+    "tabs",
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    },
+    "default_title": "Save to PocketBox"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  }
+}

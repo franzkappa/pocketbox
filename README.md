@@ -1,0 +1,165 @@
+# PocketBox 📦
+
+**PocketBox** is a personal, private, 100% self-hosted "Read It Later" application inspired by Mozilla Pocket.  
+It runs **locally on your Mac** with zero cloud subscription fees, provides an **offline-first PWA** reading experience on iPhone, and synchronizes articles saved from Firefox (both on Mac and iPhone) leveraging **Firefox Sync** and a dedicated extension—even when links are saved while the Mac is powered off or sleeping.
+
+---
+
+## 🌟 Key Features
+
+1. **Mac-Sleep Solution (Asynchronous Sync via Firefox Sync)**:
+   - Save any article from Firefox on iPhone or Mac into a designated bookmark folder: `📥 PocketBox`.
+   - Firefox Sync securely synchronizes the bookmark through Mozilla's encrypted sync servers.
+   - Whenever your Mac wakes up and Firefox is open, the background extension automatically detects new bookmarks in that folder, sends them to the local PocketBox server for full-text extraction, and clears the queue folder.
+   - On Firefox for Mac, a **1-click toolbar button** is also available to instantly save active tabs without navigating folders.
+
+2. **Native Firefox Reader Engine (`@mozilla/readability`)**:
+   - Strips ads, cookie prompts, newsletter popups, and clutter.
+   - Extracts clean article text, author/byline, estimated reading time, and hero images using the exact engine that powers Firefox's native Reader View.
+
+3. **Web Interface & iPhone PWA (Offline-First)**:
+   - Installable as a standalone app on iPhone via Safari/Firefox ("Add to Home Screen") without browser toolbars.
+   - **Full Offline Reading**: Automatically caches articles locally (IndexedDB / Service Worker) while connected to your home Wi-Fi. You can read all saved articles anywhere (on the subway, in airplane mode, or when your Mac is turned off).
+   - Distraction-free reader view with customizable typography: Serif (book style), Sans-serif (modern), Monospace, adjustable font size, and line spacing.
+   - Reading themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
+
+4. **Rich Organization**:
+   - **Folders / Topics**: Organize articles by subject (*Technology*, *Work*, *Long Reads*, *Personal*).
+   - **Multiple Tags**: Flexible multi-tagging system with color-coded badges.
+   - **Pocket Sections**: *Inbox (To Read)*, *Archive (Read)*, *Favorites (Starred)*.
+   - **Instant Full-Text Search**: Filter by title, author, domain, or content.
+   - **Quick Actions**: One-tap delete, archive, or favorite.
+
+---
+
+## 🏗️ Architecture
+
+```
+┌────────────────────────────────────────────────────────┐
+│                      IPHONE                            │
+│  - Firefox iOS: Save to "📥 PocketBox" bookmark folder │
+│  - Safari/PWA: Fullscreen Home Screen offline reader   │
+└───────────────────────────┬────────────────────────────┘
+                            │ Firefox Sync
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                   MAC (Localhost)                      │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ Firefox Extension (WebExtension Manifest v3)     │  │
+│  │  - Listener for "📥 PocketBox" bookmark folder   │  │
+│  │  - 1-click toolbar button                        │  │
+│  └────────────────────────┬─────────────────────────┘  │
+│                           │ REST API (localhost:3000)  │
+│  ┌────────────────────────▼─────────────────────────┐  │
+│  │ PocketBox Server (Node.js 24 + native node:sqlite│  │
+│  │  - Readability engine (JSDOM + @mozilla/readabili│  │
+│  │  - Local SQLite database (data/pocketbox.db)     │  │
+│  │  - PWA Frontend (Next.js / Tailwind / SW)        │  │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Launch the Server
+To start the local server anytime, simply run:
+```bash
+./run.sh
+```
+or via npm:
+```bash
+npm run start
+```
+The server will be accessible at:
+- **Mac Browser**: [http://localhost:3000](http://localhost:3000)
+- **Local Network (iPhone)**: `http://<your-mac-ip>:3000` (e.g. `http://192.168.1.19:3000`)
+
+---
+
+### 2. Install the Firefox Extension (Mac)
+
+1. Open **Firefox** on your Mac.
+2. In the URL bar, go to:
+   ```
+   about:debugging#/runtime/this-firefox
+   ```
+3. Click the **"Load Temporary Add-on..."** button.
+4. Navigate to this project folder and select `firefox-extension/manifest.json`.
+5. The extension **PocketBox - Read It Later** is now active!
+   - You will see the **📦 PocketBox** icon in your toolbar.
+   - The extension will automatically create or recognize the `📥 PocketBox` folder in your Firefox Bookmarks.
+
+---
+
+### 3. Asynchronous Sync from iPhone (Mac-Sleep Solution)
+
+1. Make sure you are signed into **Firefox Sync** on both your Mac and your iPhone.
+2. On your iPhone:
+   - When browsing an article in Firefox iOS, tap the **Menu (☰)** > **Bookmark**.
+   - Choose the `📥 PocketBox` folder.
+3. Even if your Mac was sleeping or powered off when you saved it:
+   - The moment your Mac wakes up and Firefox is open, Firefox Sync downloads the bookmark.
+   - The PocketBox extension automatically catches it, sends it to `http://localhost:3000/api/articles` for distraction-free extraction, and removes the bookmark from `📥 PocketBox` to keep your intake queue empty.
+
+---
+
+### 4. Install the Offline PWA on iPhone
+
+1. On your iPhone, open **Safari** (connected to your home Wi-Fi).
+2. Navigate to your Mac's local IP:
+   ```
+   http://192.168.1.19:3000
+   ```
+   *(replace with your Mac's Wi-Fi IP address if different)*
+3. Tap the **Share** button in Safari (square with arrow pointing up).
+4. Select **"Add to Home Screen"** (Aggiungi a schermata Home).
+5. Name it **PocketBox** and tap **Add**.
+6. Open the newly created app icon on your iPhone Home Screen.
+   - It runs as a **fullscreen native-like standalone app**.
+   - Articles are automatically stored in IndexedDB locally.
+   - You can disconnect Wi-Fi or turn off your Mac and read all saved articles offline at any time!
+
+---
+
+## 📂 Project Structure
+
+```
+new pocket/
+├── README.md                 # Project documentation & guide
+├── HANDOFF.md                # Fast-start specification
+├── run.sh                    # One-click startup script
+├── package.json              # Unified Next.js full-stack configuration
+├── data/
+│   └── pocketbox.db          # Local SQLite database (WAL mode)
+├── lib/
+│   ├── db.ts                 # Native node:sqlite database operations
+│   ├── extractor.ts          # Mozilla Readability + JSDOM content extraction
+│   ├── offlineStorage.ts     # Client-side IndexedDB caching for iPhone
+│   ├── cors.ts               # API CORS middleware
+│   └── types.ts              # TypeScript interfaces
+├── app/
+│   ├── layout.tsx            # PWA shell & service worker registration
+│   ├── page.tsx              # Main library view (Inbox, Archive, Favorites)
+│   ├── globals.css           # Reader & Tailwind styles
+│   └── api/
+│       ├── articles/         # Article CRUD & extraction endpoints
+│       ├── folders/          # Folder management endpoints
+│       └── tags/             # Tag management endpoints
+├── components/
+│   ├── Sidebar.tsx           # Responsive sidebar & mobile drawer
+│   ├── ArticleCard.tsx       # Article preview card with quick actions
+│   ├── ReaderView.tsx        # Minimalist distraction-free reader
+│   └── AddArticleModal.tsx   # Manual URL input modal
+├── public/
+│   ├── manifest.json         # PWA Manifest
+│   ├── sw.js                 # Service Worker for offline fallback
+│   └── icons/                # App & extension icons
+└── firefox-extension/        # Firefox WebExtension (Manifest v3)
+    ├── manifest.json
+    ├── background.js         # Bookmark listener & sync processor
+    ├── popup.html            # 1-click toolbar action UI
+    ├── popup.js              # Tab saving & queue trigger
+    └── icons/                # Extension toolbar icons
+```
