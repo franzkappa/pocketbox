@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Operational**  
-> All 6 phases defined in the project roadmap have been built, compiled, and tested end-to-end. The local Next.js server, native SQLite database, Readability engine, PWA offline caching layer, and Firefox WebExtension are active and functional.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Operational in Production Cloud**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, and the Firefox WebExtension are active and verified end-to-end. The user's phone is 100% independent from the Mac.
 
 ---
 
@@ -10,14 +10,15 @@
 - **Project Name**: `PocketBox`
 - **Location**: `/Users/federicocaruso/Documents/LLM projects/new pocket`
 - **GitHub Repository**: [https://github.com/franzkappa/pocketbox](https://github.com/franzkappa/pocketbox) (Public, `main` branch synced with `origin/main`)
+- **Live Production URL**: `https://pocketboxnew.vercel.app`
 - **Primary Stack**:
-  - **Runtime**: Node.js `v24.21.0` (at `~/.local/node/bin/node`)
   - **Framework**: Next.js 15 (App Router) + React 19 + TypeScript 5
   - **Styling**: Tailwind CSS + Lucide Icons
-  - **Database**: Hybrid `@libsql/client` (supports Turso Cloud SQLite 24/7 or local `./data/pocketbox.db`)
-  - **Auth**: Built-in Password / PIN login & Bearer API key protection (`lib/auth.ts`)
+  - **Database Engine**: Hybrid `@libsql/client` (Turso Cloud SQLite via `libsql://` in production; local `./data/pocketbox.db` as development fallback)
+  - **Cloud Hosting**: Vercel Serverless (24/7 always-on, zero cold spin-down for UI, automatic SSL)
   - **Article Parser**: `@mozilla/readability` + `jsdom`
   - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v4`) + IndexedDB (`lib/offlineStorage.ts`)
+  - **iOS Ingestion**: Native iOS Shortcut via Apple Share Sheet calling `/api/save`
   - **Browser Extension**: Firefox WebExtension (Manifest V3, `firefox-extension/` with configurable Cloud URL & API Key)
 
 ---
@@ -27,58 +28,65 @@
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                           IPHONE                               │
-│  - Firefox iOS: Save to "📥 PocketBox" bookmark folder         │
+│  - iOS Share Sheet: 1-Tap Save via Apple Shortcut              │
 │  - Safari PWA: Standalone Home Screen App (Offline IndexedDB)  │
 └───────────────────────────────┬────────────────────────────────┘
-                                │ Firefox Sync (Encrypted Mozilla Cloud)
+                                │ HTTPS REST
                                 ▼
 ┌────────────────────────────────────────────────────────────────┐
-│                        MAC (Localhost)                         │
+│                    VERCEL CLOUD (24/7)                         │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ PocketBox Serverless API (Next.js 15 App Router)         │  │
+│  │  - Content Extractor (@mozilla/readability + JSDOM)      │  │
+│  │  - Auth & CORS Middleware (lib/auth.ts, lib/cors.ts)     │  │
+│  │  - Ingestion Endpoints (/api/save, /api/articles)        │  │
+│  │  - PWA Frontend & Distraction-Free Reader               │  │
+│  └────────────────────────────┬─────────────────────────────┘  │
+│                               │ libsql:// (TLS / HTTP)         │
+│  ┌────────────────────────────▼─────────────────────────────┐  │
+│  │ TURSO CLOUD SQLITE (Serverless SQLite Database)          │  │
+│  │  - articles, folders, tags, article_tags tables          │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└───────────────────────────────▲────────────────────────────────┘
+                                │ HTTPS REST
+┌───────────────────────────────┴────────────────────────────────┐
+│                        MAC (DESKTOP)                           │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │ Firefox Extension (Manifest V3)                          │  │
-│  │  - Monitors bookmark folder: "📥 PocketBox"              │  │
-│  │  - Sends POST /api/articles to local server              │  │
-│  │  - Removes bookmark on success (keeps queue clean)       │  │
-│  │  - 1-click toolbar popup to save active tab              │  │
-│  └────────────────────────────┬─────────────────────────────┘  │
-│                               │ HTTP REST (localhost:3000)     │
-│  ┌────────────────────────────▼─────────────────────────────┐  │
-│  │ PocketBox Next.js Server (:3000)                         │  │
-│  │  - Content Extractor (@mozilla/readability + JSDOM)      │  │
-│  │  - Native SQLite (data/pocketbox.db, WAL mode)           │  │
-│  │  - Next.js UI + Distraction-Free Reader                  │  │
-│  │  - PWA Manifest + Service Worker + Cache Fallback        │  │
+│  │  - 1-click toolbar popup with active tab DOM extraction  │  │
+│  │  - Configurable Cloud Server URL & Password in settings  │  │
+│  │  - Automatic background sync of "📥 PocketBox" folder    │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### The "Mac-Sleep" Asynchronous Queue Flow
-1. While away from home or when the Mac is asleep/turned off, the user finds an article in Firefox on iPhone.
-2. The user saves the bookmark into the designated folder: `📥 PocketBox`.
-3. Firefox Sync pushes this bookmark across Mozilla's encrypted sync servers.
-4. When the Mac wakes up and Firefox is opened, the PocketBox extension:
-   - Detects the new bookmarks via `browser.bookmarks.onCreated` and on startup.
-   - Forwards each URL to `http://localhost:3000/api/articles`.
-   - On successful ingestion, deletes the bookmark from `📥 PocketBox` so the folder remains a clean queue.
-   - If the local server is temporarily offline, bookmarks remain in the folder and are retried automatically.
+### iPhone 1-Tap Save Flow (iOS Shortcuts)
+1. User browses any article in Safari, Firefox, Chrome, or any app on iPhone.
+2. User taps **Share > PocketBox**.
+3. The Apple Shortcut executes an HTTP POST to `https://pocketboxnew.vercel.app/api/save?key=<password>` with JSON body `{"URL": Shortcut Input}`.
+4. The serverless backend fetches the URL, runs Mozilla Readability, strips clutter/ads, extracts byline, reading time, and lead image, and persists the record into Turso SQLite.
+5. The shortcut receives a JSON response `{ success: true, title: "..." }` and shows a native iOS confirmation notification.
+6. The user does not need their computer to be turned on.
 
-### The iPhone Offline PWA Flow
-1. The user connects their iPhone to their home Wi-Fi and opens `http://<mac-ip>:3000` in Safari.
-2. The user taps **Share > Add to Home Screen**.
-3. PocketBox launches as a fullscreen standalone iOS application with no browser bars.
-4. Every time articles are fetched, they are automatically replicated into the phone's **IndexedDB** (`pocketbox_offline`).
-5. When offline or traveling (or when the Mac is powered down), the application seamlessly serves all saved articles and images directly from the local IndexedDB cache.
+### iPhone Offline PWA Reading Flow
+1. User opens `https://pocketboxnew.vercel.app` in Safari on iPhone and taps **Share > Add to Home Screen**.
+2. PocketBox runs as a standalone fullscreen app (`display: standalone`, `apple-mobile-web-app-capable`).
+3. Whenever online, all articles (including full `content_html`) are automatically synchronized to client-side **IndexedDB** (`pocketbox_offline`).
+4. When the device is offline or in airplane mode, the Service Worker (`pocketbox-v4`) serves the app shell from cache, and the reader displays articles seamlessly from IndexedDB.
+
+### Desktop Firefox Extension Flow
+1. User clicks the PocketBox toolbar icon in Firefox on Mac.
+2. In settings (⚙️), the extension is configured with Server URL `https://pocketboxnew.vercel.app` and password.
+3. The extension injects `document.documentElement.outerHTML` into the active tab to extract client-rendered DOM (bypassing DataDome / Cloudflare anti-bot blocks on paywalled news sites like *Libération*).
+4. The active tab DOM is sent to `/api/articles` with Bearer auth, ingested into Turso, and available across all devices.
 
 ---
 
-## 🗄️ 3. Database Schema (`data/pocketbox.db`)
+## 🗄️ 3. Database Schema (Turso Cloud SQLite)
 
-Managed by [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts) using Node 24 `node:sqlite`:
+Managed by [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts) using `@libsql/client`:
 
 ```sql
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS folders (
   id TEXT PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
@@ -119,6 +127,10 @@ CREATE TABLE IF NOT EXISTS article_tags (
   FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
   FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(is_archived, is_favorite, is_read);
+CREATE INDEX IF NOT EXISTS idx_articles_folder ON articles(folder_id);
+CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);
 ```
 
 Default seeded folders: `Technology`, `Work`, `Long Reads`, `Personal`.  
@@ -128,101 +140,49 @@ Default seeded tags: `must-read`, `quick`, `reference`.
 
 ## 🔌 4. Implemented REST API Endpoints
 
-All endpoints support CORS (`*`) for cross-origin extension requests and return JSON:
+All endpoints support CORS (`*`) and flexible authentication (`Authorization: Bearer <token>`, `X-API-Key: <token>`, `?key=<token>`, or session cookie):
 
-| Method | Endpoint | Description | Query / Body Parameters |
-|---|---|---|---|
-| `GET` | `/api/articles` | List articles with filters | `?filter=inbox\|archive\|favorites&folder_id=...&tag_id=...&q=...` |
-| `POST` | `/api/articles` | Extract & save an article (from URL or pre-rendered client HTML) | `{ "url": "https://...", "html": "...", "title": "...", "folder_id": "...", "tags": ["tag1"] }` |
-| `GET` | `/api/articles/[id]` | Get single article with full HTML | None |
-| `PATCH` | `/api/articles/[id]` | Update article state | `{ "is_read": 1, "is_favorite": 1, "is_archived": 1, "folder_id": "..." }` |
-| `DELETE` | `/api/articles/[id]` | Delete article permanently | None |
-| `GET` | `/api/folders` | List all folders with counts | None |
-| `POST` | `/api/folders` | Create a folder | `{ "name": "AI", "color": "#8B5CF6" }` |
-| `DELETE` | `/api/folders/[id]` | Delete a folder | None |
-| `GET` | `/api/tags` | List all tags with counts | None |
-| `POST` | `/api/tags` | Create a tag | `{ "name": "coding", "color": "#10B981" }` |
-| `DELETE` | `/api/tags/[id]` | Delete a tag | None |
-
----
-
-## 💻 5. Frontend & Reader Features
-
-- **App Shell** ([`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx)):
-  - Top navigation bar with instant live search and "+ Add URL" quick modal.
-  - Safe Area top inset support (`.pt-safe`), ensuring elements are never placed under the iOS status bar (clock, battery, Wi-Fi) on iPhone SE (2nd/3rd gen) and notch/Dynamic Island devices.
-  - Responsive layout optimized for 375px screens: responsive search bar (`w-32` expanding on focus), horizontally scrollable filter chips with one-click clear.
-  - Dynamic viewport sizing (`h-[100dvh]`) preventing layout shift from mobile Safari toolbars.
-  - Responsive layout: desktop persistent sidebar, mobile slide-out touch drawer (`max-w-[280px]` with safe area clearance).
-- **Article Cards** ([`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx)):
-  - Thumbnail preview, domain name, estimated reading time, folder/tag badges, date saved.
-  - One-tap quick actions: Favorite, Archive, Delete with min 34px tap targets and `touch-manipulation`.
-- **Distraction-Free Reader** ([`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx)):
-  - 4 themes:
-    1. **Paper Light**: Crisp reading paper (`#FCFCFC`, text `#1C1C1E`)
-    2. **Warm Sepia**: Book cream (`#F8F1E5`, text `#3E2723`)
-    3. **Dark Slate**: Modern dark mode (`#181C22`, text `#DDE2E8`)
-    4. **Pure OLED Black**: Pitch black for OLED screens (`#000000`, text `#EDEDED`)
-  - Typography controls: **Serif** (Charter/Georgia), **Sans** (System/Inter), **Mono**.
-  - Font size adjustment (`14px` - `28px`) persisted in `localStorage`.
-  - Header with `pt-safe` and reading progress bar positioned at the bottom edge of the header for optimal visibility.
-  - Reading container with bottom safe area clearance (`pb-[calc(var(--sab)+3rem)]`) and `overscroll-contain`.
-  - Keyboard shortcuts: `Escape` to close reader.
-- **Add Article Modal** ([`components/AddArticleModal.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/AddArticleModal.tsx)):
-  - Modal with `pt-safe pb-safe` and scrollable content to ensure usability even when the iOS virtual keyboard is visible on 667px height devices.
-  - Mobile input font-size configured to `16px` (`text-base md:text-sm`) to prevent iOS Safari auto-zooming.
-- **Offline Storage & Service Worker** ([`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts) & [`public/sw.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/public/sw.js)):
-  - Service Worker `pocketbox-v3` with **Network-First** strategy for HTML navigation requests (ensuring fresh deployments load immediately when online, falling back to cache when offline).
-  - IndexedDB store (`pocketbox_offline`) that automatically caches articles when connected and serves them transparently when offline.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` / `POST` | `/api/save` | High-speed ingestion for iOS Shortcuts & bookmarklets. Sanitizes nested iOS variable objects and query params (`?url=...&key=...` or JSON `{ "URL": "..." }`) |
+| `GET` | `/api/articles` | List articles with filters (`?filter=inbox\|archive\|favorites&folder_id=...&tag_id=...&q=...`) |
+| `POST` | `/api/articles` | Ingest article from URL or client-rendered HTML |
+| `GET` | `/api/articles/[id]` | Get single article with full HTML |
+| `PATCH` | `/api/articles/[id]` | Update article state (`is_read`, `is_favorite`, `is_archived`, `folder_id`, `tags`) |
+| `DELETE` | `/api/articles/[id]` | Delete article permanently |
+| `GET` | `/api/auth/status` | Diagnostic healthcheck (returns database type, status, folders count, auth status) |
+| `POST` | `/api/auth/login` | Authenticate with password/PIN, sets 1-year HttpOnly session cookie |
+| `POST` | `/api/auth/logout` | Clears session cookie |
+| `GET` / `POST` | `/api/folders` | List or create folders |
+| `DELETE` | `/api/folders/[id]` | Delete folder |
+| `GET` / `POST` | `/api/tags` | List or create tags |
+| `DELETE` | `/api/tags/[id]` | Delete tag |
 
 ---
 
-## 🦊 6. Firefox Extension Details (`firefox-extension/`)
+## 🔧 5. Technical Notes & Quirks
 
-- **Manifest V3**: Configured for Firefox with Gecko ID `pocketbox@local.selfhosted` (v1.1.0).
-- **Permissions**: `bookmarks`, `activeTab`, `tabs`, `storage`, `notifications`, `alarms`, `scripting`.
-- **Host Permissions**: `http://localhost:3000/*`, `http://127.0.0.1:3000/*`, `<all_urls>`.
-- **Background Worker** (`background.js`):
-  - On startup and every 2 minutes (alarms API), checks the `📥 PocketBox` bookmarks folder.
-  - Checks if any open browser tab matches the bookmark URL to capture client-rendered HTML before falling back to server-side fetch.
-  - Ingests bookmarks into `http://localhost:3000/api/articles` and deletes them from the bookmark queue upon success.
-  - If server is unreachable, bookmarks remain intact for the next cycle.
-- **Toolbar Action Popup** (`popup.html`, `popup.js`):
-  - Inspects active tab title & URL.
-  - **Client-Side DOM Extraction**: Injects `document.documentElement.outerHTML` from the active tab using `browser.scripting.executeScript`. This circumvents anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération*, sending the already-authenticated DOM directly to `/api/articles`.
-  - Loads folders and tags dynamically from localhost.
-  - 1-click "Save to PocketBox" button with success animations.
-  - "Sync Bookmark Queue Now" manual trigger.
-
----
-
-## 🔧 7. Technical Notes & Quirks
-
-1. **Native `node:sqlite` in Node 24**:
-   - `DatabaseSync` is a built-in module. In `next.config.mjs`, it is listed under `serverExternalPackages: ['node:sqlite', 'jsdom', '@mozilla/readability']` to prevent bundler errors.
-   - When mapping row objects in TypeScript, cast using `as unknown as (Article & { ... })[]` because `node:sqlite` outputs `Record<string, SQLOutputValue>`.
-2. **CORS on API Endpoints**:
-   - The Firefox extension runs with an `moz-extension://` origin. Route handlers implement OPTIONS and return `Access-Control-Allow-Origin: *` via `lib/cors.ts`.
+1. **CORS Headers (`lib/cors.ts`)**:
+   - `Access-Control-Allow-Headers` is explicitly set to `*` to allow custom headers (`X-API-Key`, `Authorization`, `Content-Type`) from the Firefox extension and cross-origin callers without preflight rejections.
+2. **iOS Shortcut Variable Serialization**:
+   - In Apple Shortcuts, when using `Get Contents of URL` with method `GET`, query params must contain the actual variable token `Shortcut Input`, not literal text.
+   - For `POST` requests, the Request Body JSON should specify key `URL` and value set to the dynamic variable token `Shortcut Input`.
+   - `/api/save` and `/api/articles` are built with an ultra-flexible extractor (`extractUrl`) that can extract valid `https://` URLs from JSON strings, nested objects (`{ URL: ... }`, `{ url: ... }`), plain text, and query parameters.
 3. **PWA Standalone Display & Safe Areas on iOS**:
-   - `app/layout.tsx` includes `viewportFit: 'cover'`, `apple-mobile-web-app-capable: yes`, and `black-translucent` status bar.
-   - To prevent content from overlapping the iOS status bar (clock, battery, Wi-Fi) and Apple's progressive blur/gradient scrim, CSS safe area variables `--sat`, `--sab` and utility class `.pt-safe` are declared in `app/globals.css`.
-   - On iOS standalone PWA, Apple applies a ~50px progressive blur scrim across the top with `black-translucent`. A CSS rule `@supports (-webkit-touch-callout: none) { @media all and (display-mode: standalone), all and (display-mode: fullscreen) { :root { --sat: max(env(safe-area-inset-top, 0px), 52px); } } }` together with synchronous `ios-standalone` detection in `<head>` guarantees at least 52px status bar clearance even on classic bezel devices like iPhone SE (2nd & 3rd gen), ensuring all labels, buttons, and text remain 100% crisp with zero blurring.
-   - Text inputs across modals and search bars enforce `text-base` (16px) on mobile viewports to prevent iOS Safari from automatically zooming into the page on focus.
-   - `public/sw.js` uses `pocketbox-v3` with Network-First navigation so that newly deployed builds take effect immediately upon reload.
-4. **Anti-Bot & Paywall Bypass (DataDome / Cloudflare)**:
-   - Paywalled news websites (such as *Libération*, *Le Monde*, *The New York Times*) deploy strict anti-bot WAFs (DataDome) that analyze TLS/JA3/JA4 fingerprints and HTTP/2 settings frames, rejecting server-side Node.js `fetch()` requests with `HTTP 403 Forbidden`.
-   - **Solution**: The PocketBox Firefox extension uses client-side DOM extraction via `browser.scripting.executeScript` to send `document.documentElement.outerHTML` from the user's active browser tab directly to `/api/articles`. The backend's Readability engine processes this pre-authenticated, challenge-passed DOM without making any outbound network requests.
-   - **Graceful Fallback**: If a protected URL is ingested via the background bookmark queue without an open tab, the backend falls back gracefully to save the link with a placeholder rather than failing or looping indefinitely. If the user later saves the article while reading it in Firefox, `/api/articles` automatically updates the existing record with the full content.
+   - `app/layout.tsx` enforces `viewportFit: 'cover'`, `apple-mobile-web-app-capable: yes`, and `black-translucent` status bar.
+   - CSS safe area variables `--sat` and `.pt-safe` ensure minimum 52px clearance on classic bezel devices like iPhone SE (2nd/3rd gen) to avoid Apple's status bar scrim.
+   - Mobile text inputs enforce `text-base` (16px) to eliminate iOS Safari automatic zoom on focus.
+4. **Anti-Bot & Paywall Bypass**:
+   - Paywalled sites deploying DataDome or Cloudflare WAF block serverless fetches with HTTP 403 Forbidden.
+   - The Firefox extension circumvents this by executing `document.documentElement.outerHTML` from the user's active tab and posting the already-authenticated DOM directly to `/api/articles`.
 
 ---
 
-## 🔮 8. Roadmap & Future Enhancement Opportunities
+## 🔮 6. Future Enhancements
 
-1. **SQLite FTS5 Full-Text Search**:
-   - Can easily be added via a virtual table (`CREATE VIRTUAL TABLE articles_fts USING fts5(...)`) for instant indexed snippet search across thousands of long articles.
-2. **Automatic Mac Background Daemon**:
-   - Create a macOS `launchd` plist (`~/Library/LaunchAgents/com.pocketbox.server.plist`) to keep the PocketBox server running silently on boot without keeping a terminal window open.
-3. **EPUB / PDF Export**:
-   - Add a download button in the reader to export clean articles as `.epub` for e-ink readers (Kindle, Kobo) or formatted `.pdf`.
-4. **Highlights & Notes**:
-   - Text selection listener in `ReaderView.tsx` to store user highlights and personal marginalia in an `article_highlights` table.
+1. **Full-Text Search (FTS5 / libSQL virtual table)**:
+   - Index article body text in Turso for instant snippet searching across thousands of long articles.
+2. **EPUB / PDF Export**:
+   - Add a download action in `ReaderView.tsx` to export clean articles formatted for Kindle / Kobo e-readers.
+3. **Highlights & Notes**:
+   - Text selection listener in `ReaderView.tsx` to persist user highlights and marginalia in an `article_highlights` table.
