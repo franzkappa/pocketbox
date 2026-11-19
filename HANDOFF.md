@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
 > **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, and the Firefox WebExtension are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets.
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, and the Firefox WebExtension are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -11,6 +11,8 @@
 - **Location**: `/Users/federicocaruso/Documents/LLM projects/new pocket`
 - **Current Version**: `0.1.0` (Tag `v0.1.0`, published on [GitHub Releases](https://github.com/franzkappa/pocketbox/releases/tag/v0.1.0))
 - **GitHub Repository**: [https://github.com/franzkappa/pocketbox](https://github.com/franzkappa/pocketbox) (Public, `main` branch synced with `origin/main`)
+- **Repository Topics**: `pocket-alternative`, `omnivore-alternative`, `read-it-later`, `reading-list`, `bookmark-manager`, `self-hosted`, `offline-first`, `pwa`, `ios-shortcuts`, `firefox-extension`, `turso`, `sqlite`, `nextjs`, `react`
+- **1-Click Deploy Link**: Configured with Vercel deploy button pre-populating `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and `POCKETBOX_PASSWORD`
 - **Live Production URL**: `https://pocketboxnew.vercel.app`
 - **Primary Stack**:
   - **Framework**: Next.js 15 (App Router) + React 19 + TypeScript 5
@@ -189,6 +191,9 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 5. **Mobile Gestures & Instant Refresh**:
    - Native-feeling **Pull-to-Refresh** (`components/PullToRefresh.tsx`) allows scrolling down at the top on iPhone/Android to refresh articles and metadata with rotation physics, haptic feedback (`navigator.vibrate`), and smooth snap animations.
    - Dedicated **rotating arrow refresh button** in the top navbar and sidebar footer, executing background re-fetching without blanking out the article list.
+6. **1-Click Vercel Deploy & Environment Pre-population**:
+   - The repository integrates a Vercel 1-click clone URL (`https://vercel.com/new/clone?repository-url=...`) with parameters `env`, `envDescription`, and `envLink`.
+   - Vercel automatically requests `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and `POCKETBOX_PASSWORD` during onboarding, linking directly to the Turso setup anchor, eliminating setup friction for new users.
 
 ---
 

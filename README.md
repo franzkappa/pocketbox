@@ -11,7 +11,7 @@
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox&env=TURSO_DATABASE_URL,TURSO_AUTH_TOKEN,POCKETBOX_PASSWORD&envDescription=Turso%20Database%20credentials%20and%20your%20PocketBox%20access%20PIN&envLink=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox%231-database-setup-turso-cloud-sqlite)
 
-**PocketBox** is a personal, private, cloud-hosted & offline-first "Read It Later" platform inspired by Mozilla Pocket.  
+**PocketBox** is a personal, private, cloud-hosted & offline-first "Read It Later" platform inspired by Mozilla Pocket and a lightweight open-source alternative to Pocket, Omnivore, and Instapaper.  
 It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring your Mac or PC to stay powered on, provides a **100% offline-capable PWA** reading experience on iPhone, allows **1-tap saving directly from the iOS Share Sheet**, and seamlessly synchronizes with a dedicated **Firefox desktop extension**.
 
 ---
