@@ -5,7 +5,10 @@ async function getServerConfig() {
     serverUrl: 'http://localhost:3000',
     apiKey: '',
   });
-  const url = (data.serverUrl || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  let url = (data.serverUrl || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
   const apiKey = (data.apiKey || '').trim();
   return { url, apiKey };
 }
@@ -56,7 +59,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Save settings
   btnSaveSettings.addEventListener('click', async () => {
-    const newUrl = (serverUrlInput.value || 'http://localhost:3000').trim().replace(/\/+$/, '');
+    let newUrl = (serverUrlInput.value || 'http://localhost:3000').trim().replace(/\/+$/, '');
+    if (newUrl && !newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+      newUrl = 'https://' + newUrl;
+    }
     const newKey = (apiKeyInput.value || '').trim();
 
     await browser.storage.sync.set({
@@ -65,6 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     config = { url: newUrl, apiKey: newKey };
+    serverUrlInput.value = newUrl;
     if (openLibraryLink) openLibraryLink.href = config.url;
     settingsPanel.classList.add('hidden');
     showAlert('Impostazioni salvate! Verifico connessione...', 'success');
@@ -88,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await fetch(`${config.url}/api/folders`, {
         headers: getAuthHeaders(config.apiKey),
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(6000),
       });
 
       if (res.ok) {
@@ -108,14 +115,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (res.status === 401) {
         statusDot.className = 'status-dot';
         statusText.textContent = 'Auth Required';
-        showAlert('Chiave API o Password richiesta. Clicca ⚙️ per configurarla.', 'error');
+        showAlert('Password o API Key errata o mancante. Clicca ⚙️ per configurarla.', 'error');
       } else {
         statusDot.className = 'status-dot';
-        statusText.textContent = 'Server Error';
+        statusText.textContent = `Error ${res.status}`;
+        showAlert(`Errore server: HTTP ${res.status}`, 'error');
       }
     } catch (err) {
       statusDot.className = 'status-dot';
       statusText.textContent = 'Offline';
+      showAlert(`Connessione non riuscita a ${config.url}. Verifica l'URL in ⚙️.`, 'error');
     }
   }
 
@@ -180,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnSave.textContent = '✓ Saved!';
         setTimeout(() => window.close(), 1200);
       } else {
-        throw new Error(data.error || 'Server rejected request');
+        throw new Error(data.error || `Server HTTP ${res.status}`);
       }
     } catch (err) {
       showAlert(`Save failed: ${err.message}`, 'error');

@@ -52,11 +52,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { url, html, title, folder_id, tags } = body;
+    let { url, html, title, folder_id, tags } = body;
 
-    if (!url || typeof url !== 'string') {
+    if (!url) {
       return NextResponse.json(
         { success: false, error: 'Valid URL is required' },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+
+    // Sanitize url: extract valid URL if there's surrounding text (e.g. from iOS Share Sheet or Firefox iOS)
+    if (typeof url !== 'string') {
+      url = String(url);
+    }
+    const match = url.match(/https?:\/\/[^\s"'<>]+/);
+    if (match) {
+      url = match[0];
+    } else {
+      return NextResponse.json(
+        { success: false, error: `Invalid URL format: "${url.substring(0, 50)}"` },
         { status: 400, headers: corsHeaders() }
       );
     }

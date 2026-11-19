@@ -7,7 +7,10 @@ async function getServerConfig() {
     serverUrl: 'http://localhost:3000',
     apiKey: '',
   });
-  const url = (data.serverUrl || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  let url = (data.serverUrl || 'http://localhost:3000').trim().replace(/\/+$/, '');
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
   const apiKey = (data.apiKey || '').trim();
   return { url, apiKey };
 }

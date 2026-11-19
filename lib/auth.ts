@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 
 export function getAuthConfig() {
-  const password = process.env.POCKETBOX_PASSWORD || '';
-  const apiKey = process.env.POCKETBOX_API_KEY || '';
+  const password = (process.env.POCKETBOX_PASSWORD || '').trim();
+  const apiKey = (process.env.POCKETBOX_API_KEY || '').trim();
   const isEnabled = Boolean(password || apiKey);
   return { password, apiKey, isEnabled };
 }
@@ -21,33 +21,45 @@ export function getExpectedSessionToken(): string {
 
 export function verifyPassword(input: string): boolean {
   const { password, apiKey } = getAuthConfig();
+  const cleanInput = (input || '').replace(/^<|>$/g, '').trim();
   if (!password && apiKey) {
-    return input.trim() === apiKey.trim();
+    return cleanInput === apiKey;
   }
-  return input.trim() === password.trim();
+  return cleanInput === password || (Boolean(apiKey) && cleanInput === apiKey);
 }
 
 export function isRequestAuthorized(request: NextRequest): boolean {
   const { password, apiKey, isEnabled } = getAuthConfig();
   if (!isEnabled) return true;
 
-  // 1. Authorization: Bearer <key>
+  // 1. Check query parameter: ?token=, ?key=, ?apiKey=
+  try {
+    const url = new URL(request.url);
+    const qToken = (url.searchParams.get('token') || url.searchParams.get('key') || url.searchParams.get('apiKey') || '').trim();
+    if (qToken) {
+      const cleanQ = qToken.replace(/^<|>$/g, '');
+      if (apiKey && cleanQ === apiKey) return true;
+      if (password && cleanQ === password) return true;
+    }
+  } catch {}
+
+  // 2. Check Authorization header (flexible: "Bearer token", "Bearer <token>", or raw "token")
   const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7).trim();
-    if (apiKey && token === apiKey.trim()) return true;
-    if (password && token === password.trim()) return true;
+  if (authHeader) {
+    const cleanHeader = authHeader.replace(/^Bearer\s+/i, '').replace(/^<|>$/g, '').trim();
+    if (apiKey && cleanHeader === apiKey) return true;
+    if (password && cleanHeader === password) return true;
   }
 
-  // 2. X-API-Key: <key>
+  // 3. Check X-API-Key header
   const xApiKey = request.headers.get('x-api-key');
   if (xApiKey) {
-    const token = xApiKey.trim();
-    if (apiKey && token === apiKey.trim()) return true;
-    if (password && token === password.trim()) return true;
+    const cleanKey = xApiKey.replace(/^<|>$/g, '').trim();
+    if (apiKey && cleanKey === apiKey) return true;
+    if (password && cleanKey === password) return true;
   }
 
-  // 3. Cookie session check
+  // 4. Check Session cookie
   const cookieVal = request.cookies.get('pocketbox_session')?.value;
   if (cookieVal && cookieVal === getExpectedSessionToken()) {
     return true;
