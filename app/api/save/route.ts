@@ -59,24 +59,40 @@ async function handleSave(request: NextRequest, targetUrlRaw: any) {
     const extracted = await extractArticle(cleanUrl);
 
     // Persist to Database
-    const article = await db.createArticle({
-      url: extracted.url,
-      title: extracted.title,
-      byline: extracted.byline,
-      excerpt: extracted.excerpt,
-      content_html: extracted.content_html,
-      text_content: extracted.text_content,
-      site_name: extracted.site_name,
-      lead_image_url: extracted.lead_image_url,
-      reading_time_minutes: extracted.reading_time_minutes,
-      folder_id: null,
-      tags: [],
-    });
+    try {
+      const article = await db.createArticle({
+        url: extracted.url,
+        title: extracted.title,
+        byline: extracted.byline,
+        excerpt: extracted.excerpt,
+        content_html: extracted.content_html,
+        text_content: extracted.text_content,
+        site_name: extracted.site_name,
+        lead_image_url: extracted.lead_image_url,
+        reading_time_minutes: extracted.reading_time_minutes,
+        folder_id: null,
+        tags: [],
+      });
 
-    return NextResponse.json(
-      { success: true, message: 'Article saved successfully', title: article.title, article },
-      { status: 201, headers: corsHeaders() }
-    );
+      return NextResponse.json(
+        { success: true, message: 'Article saved successfully', title: article.title, article },
+        { status: 201, headers: corsHeaders() }
+      );
+    } catch (createErr: any) {
+      if (createErr.message?.includes('UNIQUE') || createErr.message?.includes('constraint')) {
+        const existingAfter = (await db.getArticleByUrl(cleanUrl)) || (await db.getArticleByUrl(cleanUrl + '/'));
+        return NextResponse.json(
+          {
+            success: true,
+            message: 'Article already in library',
+            title: existingAfter?.title || 'Already saved',
+            article: existingAfter || undefined,
+          },
+          { headers: corsHeaders() }
+        );
+      }
+      throw createErr;
+    }
   } catch (error: any) {
     console.error('[API/Save] Error saving article:', error);
     return NextResponse.json(
