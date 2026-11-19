@@ -26,22 +26,26 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 
 3. **Offline-First PWA on iPhone (True Offline Reading)**:
    - Add to Home Screen as a standalone fullscreen app with custom icon and splash styling.
-   - **Service Worker (`pocketbox-v4`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles (including full text and cleaned HTML).
+   - **Service Worker (`pocketbox-v5`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles (including full text and cleaned HTML).
    - **Zero connection required**: Open the app and read your entire library on flights, subways, or in airplane mode.
    - **iOS Safe Area & iPhone SE Optimization**: Dynamic viewport adaptation (`100dvh`), status bar clearance (`pt-safe`), and touch-optimized controls.
 
-4. **Desktop Firefox Extension (Manifest V3)**:
+4. **Mobile Gestures & Instant Refresh (Pull-to-Refresh & Rotating Reload Button)**:
+   - **Scroll Down / Pull-to-Refresh**: Native touch-driven pull gesture directly on mobile. Pulling down from the top reveals an animated rotating indicator pill with tactile resistance and haptic vibration (`navigator.vibrate`), smoothly refreshing articles on release.
+   - **Rotating Arrow Button**: Prominently placed in the top navigation bar and sidebar footer. Tapping the button triggers a rotating animation (`animate-spin`) while performing silent background revalidation, avoiding any jarring flashes or blanking of the library view.
+
+5. **Desktop Firefox Extension (Manifest V3)**:
    - 1-click toolbar popup to save the active browser tab.
    - Configurable server URL and API key/password settings via built-in settings panel (⚙️).
    - **Client-Side DOM Extraction**: Injects and captures pre-authenticated, challenge-passed DOM (`document.documentElement.outerHTML`) to bypass aggressive anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération* and *Le Monde*.
    - Asynchronous bookmark queue monitor for the `📥 PocketBox` folder.
 
-5. **Built-in Readability Engine (`@mozilla/readability` + JSDOM)**:
+6. **Built-in Readability Engine (`@mozilla/readability` + JSDOM)**:
    - Strips ads, tracking scripts, cookie prompts, and clutter.
    - Clean typography with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
    - Adjustable font sizes, font families (Serif, Sans, Mono), and real-time reading progress bar.
 
-6. **Privacy & Security**:
+7. **Privacy & Security**:
    - Protected by personal password/PIN (`POCKETBOX_PASSWORD`) with 1-year persistent session cookie.
    - Flexible API authentication supporting `Authorization: Bearer <key>`, `X-API-Key`, or URL query tokens (`?key=...`).
 
@@ -198,6 +202,7 @@ pocketbox/
 │       ├── folders/          # Folder management endpoints
 │       └── tags/             # Tag management endpoints
 ├── components/
+│   ├── PullToRefresh.tsx     # Native-grade touch pull-down refresh component
 │   ├── Sidebar.tsx           # Responsive sidebar & mobile touch drawer
 │   ├── ArticleCard.tsx       # Article preview card with quick actions
 │   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes)
@@ -205,7 +210,7 @@ pocketbox/
 │   └── LoginView.tsx         # Password/PIN login view
 ├── public/
 │   ├── manifest.json         # Standalone PWA Manifest (with Web Share Target)
-│   ├── sw.js                 # Service Worker (pocketbox-v4) for offline fallback
+│   ├── sw.js                 # Service Worker (pocketbox-v5) for offline fallback
 │   ├── favicon.svg           # Vector favicon
 │   └── icons/                # High-res PWA & Apple touch icons
 └── firefox-extension/        # Firefox WebExtension (Manifest v3)

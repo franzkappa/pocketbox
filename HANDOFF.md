@@ -17,7 +17,7 @@
   - **Database Engine**: Hybrid `@libsql/client` (Turso Cloud SQLite via `libsql://` in production; local `./data/pocketbox.db` as development fallback)
   - **Cloud Hosting**: Vercel Serverless (24/7 always-on, zero cold spin-down for UI, automatic SSL)
   - **Article Parser**: `@mozilla/readability` + `jsdom`
-  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v4`) + IndexedDB (`lib/offlineStorage.ts`)
+  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v5`) + IndexedDB (`lib/offlineStorage.ts`)
   - **iOS Ingestion**: Native iOS Shortcut via Apple Share Sheet calling `/api/save`
   - **Browser Extension**: Firefox WebExtension (Manifest V3, `firefox-extension/` with configurable Cloud URL & API Key)
 
@@ -72,7 +72,17 @@
 1. User opens `https://pocketboxnew.vercel.app` in Safari on iPhone and taps **Share > Add to Home Screen**.
 2. PocketBox runs as a standalone fullscreen app (`display: standalone`, `apple-mobile-web-app-capable`).
 3. Whenever online, all articles (including full `content_html`) are automatically synchronized to client-side **IndexedDB** (`pocketbox_offline`).
-4. When the device is offline or in airplane mode, the Service Worker (`pocketbox-v4`) serves the app shell from cache, and the reader displays articles seamlessly from IndexedDB.
+4. When the device is offline or in airplane mode, the Service Worker (`pocketbox-v5`) serves the app shell from cache, and the reader displays articles seamlessly from IndexedDB.
+
+### Mobile & Desktop Refresh Flow (Pull-to-Refresh & Rotating Reload Button)
+1. **Pull-to-Refresh Gesture**:
+   - Implemented via [`components/PullToRefresh.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/PullToRefresh.tsx) using non-passive touch event listeners (`passive: false`) attached directly to the main container.
+   - When at `scrollTop <= 0`, dragging downward applies a damping curve (`Math.min(90, dy * 0.45)`), rotates the indicator arrow proportionally, and emits a haptic tick via `navigator.vibrate(10)` upon passing the 65px threshold.
+   - On release, the indicator locks at 48px, displays `"Aggiornamento..."` with an active spin animation, and silently triggers `fetchArticles(true)` and `fetchMetadata()`.
+2. **Rotating Arrow Button (Header & Sidebar)**:
+   - Tapping the `RefreshCw` button in the top navbar or the sidebar footer activates `animate-spin` on the icon and re-queries the cloud database in the background.
+   - The UI does not clear or show an empty skeleton, ensuring continuous reading without screen flashing.
+3. Once updated, articles are updated in place and synchronized to IndexedDB for offline resilience.
 
 ### Desktop Firefox Extension Flow
 1. User clicks the PocketBox toolbar icon in Firefox on Mac.
