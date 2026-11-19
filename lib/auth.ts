@@ -32,10 +32,16 @@ export function isRequestAuthorized(request: NextRequest): boolean {
   const { password, apiKey, isEnabled } = getAuthConfig();
   if (!isEnabled) return true;
 
-  // 1. Check query parameter: ?token=, ?key=, ?apiKey=
+  // 1. Check query parameter: ?token=, ?key=, ?apiKey=, ?password=
   try {
     const url = new URL(request.url);
-    const qToken = (url.searchParams.get('token') || url.searchParams.get('key') || url.searchParams.get('apiKey') || '').trim();
+    const qToken = (
+      url.searchParams.get('token') ||
+      url.searchParams.get('key') ||
+      url.searchParams.get('apiKey') ||
+      url.searchParams.get('password') ||
+      ''
+    ).trim();
     if (qToken) {
       const cleanQ = qToken.replace(/^<|>$/g, '');
       if (apiKey && cleanQ === apiKey) return true;

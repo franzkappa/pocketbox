@@ -12,6 +12,25 @@ export async function OPTIONS() {
   return handleOptions();
 }
 
+function extractUrl(input: any, rawBody?: any): string | null {
+  if (typeof input === 'string') {
+    const m = input.match(/https?:\/\/[^\s"'<>]+/);
+    if (m) return m[0];
+  }
+  if (rawBody) {
+    if (typeof rawBody === 'string') {
+      const m = rawBody.match(/https?:\/\/[^\s"'<>]+/);
+      if (m) return m[0];
+    }
+    try {
+      const str = JSON.stringify(rawBody);
+      const m = str.match(/https?:\/\/[^\s"'\\<>]+/);
+      if (m) return m[0].replace(/\\/g, '');
+    } catch {}
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   if (!isRequestAuthorized(request)) {
     return NextResponse.json(
@@ -51,41 +70,52 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
-    let { url, html, title, folder_id, tags } = body;
+    const { searchParams } = new URL(request.url);
+    let urlParam: any = searchParams.get('url') || searchParams.get('text');
+    let rawBody: any = null;
+    let html: string | undefined = undefined;
+    let title: string | undefined = undefined;
+    let folder_id: string | null = null;
+    let tags: string[] = [];
 
-    if (!url) {
+    try {
+      rawBody = await request.json();
+      if (rawBody && typeof rawBody === 'object') {
+        urlParam = rawBody.url || rawBody.URL || rawBody.link || rawBody.text || urlParam;
+        html = rawBody.html;
+        title = rawBody.title;
+        folder_id = rawBody.folder_id || null;
+        tags = Array.isArray(rawBody.tags) ? rawBody.tags : [];
+      } else if (typeof rawBody === 'string') {
+        urlParam = rawBody;
+      }
+    } catch {
+      try {
+        const textBody = await request.text();
+        if (textBody) urlParam = urlParam || textBody;
+      } catch {}
+    }
+
+    const cleanUrl = extractUrl(urlParam, rawBody);
+
+    if (!cleanUrl) {
       return NextResponse.json(
         { success: false, error: 'Valid URL is required' },
         { status: 400, headers: corsHeaders() }
       );
     }
 
-    // Sanitize url: extract valid URL if there's surrounding text (e.g. from iOS Share Sheet or Firefox iOS)
-    if (typeof url !== 'string') {
-      url = String(url);
-    }
-    const match = url.match(/https?:\/\/[^\s"'<>]+/);
-    if (match) {
-      url = match[0];
-    } else {
-      return NextResponse.json(
-        { success: false, error: `Invalid URL format: "${url.substring(0, 50)}"` },
-        { status: 400, headers: corsHeaders() }
-      );
-    }
-
     // Check if article already exists
-    const existing = await db.getArticleByUrl(url);
+    const existing = await db.getArticleByUrl(cleanUrl);
     if (existing) {
       const updates: any = {};
       if (folder_id !== undefined) updates.folder_id = folder_id;
-      if (tags !== undefined) updates.tags = tags;
+      if (tags.length > 0) updates.tags = tags;
       if (existing.is_archived) updates.is_archived = 0;
 
       // If existing article had fallback/placeholder content and client now provides rendered HTML:
       if (html && (existing.content_html?.includes('Unable to extract full content') || !existing.content_html)) {
-        const reExtracted = await extractArticle(url, { html, fallbackTitle: title || existing.title });
+        const reExtracted = await extractArticle(cleanUrl, { html, fallbackTitle: title || existing.title });
         updates.title = reExtracted.title;
         updates.byline = reExtracted.byline;
         updates.excerpt = reExtracted.excerpt;
@@ -104,7 +134,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract article content (from provided client HTML or server fetch)
-    const extracted = await extractArticle(url, { html, fallbackTitle: title });
+    const extracted = await extractArticle(cleanUrl, { html, fallbackTitle: title });
 
     // Persist to Database
     const article = await db.createArticle({
@@ -118,7 +148,7 @@ export async function POST(request: NextRequest) {
       lead_image_url: extracted.lead_image_url,
       reading_time_minutes: extracted.reading_time_minutes,
       folder_id: folder_id || null,
-      tags: Array.isArray(tags) ? tags : [],
+      tags: tags,
     });
 
     return NextResponse.json(
