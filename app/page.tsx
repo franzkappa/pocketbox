@@ -18,6 +18,7 @@ import { ArticleCard } from '@/components/ArticleCard';
 import { ReaderView } from '@/components/ReaderView';
 import { AddArticleModal } from '@/components/AddArticleModal';
 import { LoginView } from '@/components/LoginView';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { 
   cacheArticlesOffline, 
   getCachedArticlesOffline, 
@@ -39,6 +40,7 @@ export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [needsAuth, setNeedsAuth] = useState(false);
 
@@ -70,8 +72,8 @@ export default function HomePage() {
   }, []);
 
   // Fetch articles
-  const fetchArticles = useCallback(async () => {
-    setIsLoading(true);
+  const fetchArticles = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setIsLoading(true);
     try {
       const params = new URLSearchParams();
       params.set('filter', currentFilter);
@@ -111,6 +113,25 @@ export default function HomePage() {
       setIsLoading(false);
     }
   }, [currentFilter, selectedFolderId, selectedTagId, searchQuery]);
+
+  // Unified reload handler for both Pull-To-Refresh and Header Refresh button
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    const start = Date.now();
+    try {
+      await Promise.all([fetchArticles(true), fetchMetadata()]);
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    } finally {
+      // Ensure smooth visual rotation feedback (at least 450ms)
+      const elapsed = Date.now() - start;
+      if (elapsed < 450) {
+        await new Promise((resolve) => setTimeout(resolve, 450 - elapsed));
+      }
+      setIsRefreshing(false);
+    }
+  }, [fetchArticles, fetchMetadata, isRefreshing]);
 
   const handleLogout = async () => {
     try {
@@ -328,6 +349,8 @@ export default function HomePage() {
         onClose={() => setIsSidebarOpen(false)}
         isOnline={isOnline}
         onLogout={handleLogout}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
 
       {/* Main Content Area */}
@@ -355,9 +378,9 @@ export default function HomePage() {
               </h1>
             </div>
 
-            {/* Search Bar & Add Button (Optimized for iPhone SE 375px width) */}
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="relative w-32 xs:w-40 sm:w-64 transition-all duration-150 focus-within:w-40 sm:focus-within:w-64">
+            {/* Search Bar, Refresh Button & Add Button */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="relative w-28 xs:w-36 sm:w-60 transition-all duration-150 focus-within:w-36 sm:focus-within:w-64">
                 <Search className="w-4 h-4 text-slate-400 absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
@@ -377,9 +400,24 @@ export default function HomePage() {
                 )}
               </div>
 
+              {/* Refresh Button with spinning arrow */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition active:scale-95 shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[40px] sm:min-h-[40px] touch-manipulation disabled:opacity-60"
+                title="Ricarica articoli"
+                aria-label="Ricarica articoli"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 transition-transform duration-300 ${
+                    isRefreshing ? 'animate-spin text-rose-400' : ''
+                  }`}
+                />
+              </button>
+
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs md:text-sm font-semibold shadow-lg shadow-rose-600/20 transition active:scale-95 shrink-0 min-w-[40px] min-h-[40px] touch-manipulation"
+                className="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs md:text-sm font-semibold shadow-lg shadow-rose-600/20 transition active:scale-95 shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[40px] sm:min-h-[40px] touch-manipulation"
                 title="Add URL"
                 aria-label="Add URL"
               >
@@ -431,8 +469,12 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Article Cards Grid / Scrollable Area */}
-        <main className="flex-1 overflow-y-auto p-3.5 sm:p-4 md:p-6 pb-[calc(var(--sab)+1.5rem)] overscroll-contain">
+        {/* Article Cards Grid / Scrollable Area with Pull-To-Refresh */}
+        <PullToRefresh
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+          className="flex-1 overflow-y-auto p-3.5 sm:p-4 md:p-6 pb-[calc(var(--sab)+1.5rem)] overscroll-contain"
+        >
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
               <RefreshCw className="w-6 h-6 animate-spin text-rose-500" />
@@ -483,7 +525,7 @@ export default function HomePage() {
               ))}
             </div>
           )}
-        </main>
+        </PullToRefresh>
       </div>
 
       {/* Reader View Modal */}

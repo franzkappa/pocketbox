@@ -11,7 +11,8 @@ import {
   X, 
   Trash2, 
   Wifi, 
-  WifiOff 
+  WifiOff,
+  RefreshCw 
 } from 'lucide-react';
 import type { Folder, Tag, ArticleFilter } from '@/lib/types';
 
@@ -32,6 +33,8 @@ interface SidebarProps {
   onClose: () => void;
   isOnline: boolean;
   onLogout?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function Sidebar({
@@ -51,6 +54,8 @@ export function Sidebar({
   onClose,
   isOnline,
   onLogout,
+  onRefresh,
+  isRefreshing,
 }: SidebarProps) {
   const [newFolderName, setNewFolderName] = useState('');
   const [showAddFolder, setShowAddFolder] = useState(false);
@@ -290,15 +295,28 @@ export function Sidebar({
               </>
             )}
           </div>
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-              title="Esci da PocketBox"
-            >
-              Esci
-            </button>
-          )}
+          <div className="flex items-center gap-2.5">
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="p-1 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                title="Ricarica articoli"
+                aria-label="Ricarica articoli"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-rose-400' : ''}`} />
+              </button>
+            )}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                title="Esci da PocketBox"
+              >
+                Esci
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

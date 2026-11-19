@@ -175,6 +175,9 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 4. **Anti-Bot & Paywall Bypass**:
    - Paywalled sites deploying DataDome or Cloudflare WAF block serverless fetches with HTTP 403 Forbidden.
    - The Firefox extension circumvents this by executing `document.documentElement.outerHTML` from the user's active tab and posting the already-authenticated DOM directly to `/api/articles`.
+5. **Mobile Gestures & Instant Refresh**:
+   - Native-feeling **Pull-to-Refresh** (`components/PullToRefresh.tsx`) allows scrolling down at the top on iPhone/Android to refresh articles and metadata with rotation physics, haptic feedback (`navigator.vibrate`), and smooth snap animations.
+   - Dedicated **rotating arrow refresh button** in the top navbar and sidebar footer, executing background re-fetching without blanking out the article list.
 
 ---
 
