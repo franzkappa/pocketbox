@@ -9,6 +9,8 @@
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox&env=TURSO_DATABASE_URL,TURSO_AUTH_TOKEN,POCKETBOX_PASSWORD&envDescription=Turso%20Database%20credentials%20and%20your%20PocketBox%20access%20PIN&envLink=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox%231-database-setup-turso-cloud-sqlite)
+
 **PocketBox** is a personal, private, cloud-hosted & offline-first "Read It Later" platform inspired by Mozilla Pocket.  
 It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring your Mac or PC to stay powered on, provides a **100% offline-capable PWA** reading experience on iPhone, allows **1-tap saving directly from the iOS Share Sheet**, and seamlessly synchronizes with a dedicated **Firefox desktop extension**.
 
@@ -103,6 +105,15 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 3. Copy your **Database URL** (`libsql://pocketbox-...turso.io`) and generate an **Auth Token**.
 
 ### 2. Cloud Deployment (Vercel)
+
+#### Option A: 1-Click Deploy (Fastest)
+Click the button below to fork and deploy your personal PocketBox instance directly to Vercel in seconds:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox&env=TURSO_DATABASE_URL,TURSO_AUTH_TOKEN,POCKETBOX_PASSWORD&envDescription=Turso%20Database%20credentials%20and%20your%20PocketBox%20access%20PIN&envLink=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox%231-database-setup-turso-cloud-sqlite)
+
+Vercel will ask you to enter the environment variables obtained in Step 1 (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and your chosen `POCKETBOX_PASSWORD`). Once filled, click **Deploy** and your app will be online immediately!
+
+#### Option B: Manual Import
 1. Go to [https://vercel.com](https://vercel.com) and click **"Add New Project"**.
 2. Import your GitHub repository (`franzkappa/pocketbox`).
 3. Under **Environment Variables**, add:
@@ -110,7 +121,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    * `TURSO_AUTH_TOKEN`: your Turso token
    * `POCKETBOX_PASSWORD`: your secret password/PIN (e.g. `mysecretpin123`)
    * `POCKETBOX_API_KEY`: optional (defaults to `POCKETBOX_PASSWORD`)
-4. Click **Create Project** (or **Deploy**).  
+4. Click **Deploy**.  
    Your app is live with automatic HTTPS at `https://your-app.vercel.app`!
 
 ---
