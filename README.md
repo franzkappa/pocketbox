@@ -1,5 +1,6 @@
 # PocketBox 📦
 
+[![GitHub Release](https://img.shields.io/github/v/release/franzkappa/pocketbox?color=blue&style=flat-square)](https://github.com/franzkappa/pocketbox/releases/latest)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
 [![SQLite](https://img.shields.io/badge/SQLite-Turso%20%2F%20libSQL-blue?style=flat-square&logo=sqlite)](https://turso.tech/)
@@ -141,12 +142,15 @@ Now, while browsing in Safari or Firefox on iOS, tap **Share > PocketBox** to sa
 ---
 
 ### 4. Firefox Extension Setup on Mac
-1. Open Firefox and go to `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on** and select `firefox-extension/manifest.json`.
-3. Click the PocketBox extension icon in the toolbar, tap the gear icon (**⚙️**), and enter:
+1. **Download or Clone**:
+   * *Option A (Fastest)*: Download `pocketbox-firefox-extension-v0.1.0.zip` from the latest [GitHub Release](https://github.com/franzkappa/pocketbox/releases/latest) and extract it.
+   * *Option B*: Use the `firefox-extension/` directory from the cloned repository.
+2. Open Firefox and go to `about:debugging#/runtime/this-firefox`.
+3. Click **Load Temporary Add-on** and select `manifest.json` from the extracted/extension folder.
+4. Click the PocketBox extension icon in the toolbar, tap the gear icon (**⚙️**), and enter:
    * **Server URL**: `https://your-app.vercel.app`
    * **API Key / Password**: your configured password
-4. Click **Salva Impostazioni**. The status dot will turn green (**Online**)!
+5. Click **Salva Impostazioni**. The status dot will turn green (**Online**)!
 
 ---
 

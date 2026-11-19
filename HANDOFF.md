@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Operational in Production Cloud**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, and the Firefox WebExtension are active and verified end-to-end. The user's phone is 100% independent from the Mac.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, and the Firefox WebExtension are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets.
 
 ---
 
@@ -9,6 +9,7 @@
 
 - **Project Name**: `PocketBox`
 - **Location**: `/Users/federicocaruso/Documents/LLM projects/new pocket`
+- **Current Version**: `0.1.0` (Tag `v0.1.0`, published on [GitHub Releases](https://github.com/franzkappa/pocketbox/releases/tag/v0.1.0))
 - **GitHub Repository**: [https://github.com/franzkappa/pocketbox](https://github.com/franzkappa/pocketbox) (Public, `main` branch synced with `origin/main`)
 - **Live Production URL**: `https://pocketboxnew.vercel.app`
 - **Primary Stack**:
