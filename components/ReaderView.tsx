@@ -40,6 +40,7 @@ export function ReaderView({
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const rafIdRef = useRef<number | null>(null);
 
   const isFavorite = article.is_favorite === 1;
@@ -83,16 +84,36 @@ export function ReaderView({
     });
   };
 
-  // Keyboard shortcut: Esc to exit
+  // Keyboard shortcut: Esc to close settings or exit
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (showSettings) {
+          setShowSettings(false);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, showSettings]);
+
+  // Close settings popover when clicking or tapping outside
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showSettings]);
 
   // Track scroll progress directly on DOM node via requestAnimationFrame (no React re-renders while scrolling)
   useEffect(() => {
@@ -206,7 +227,7 @@ export function ReaderView({
           {/* Right Action Icons */}
           <div className="flex items-center gap-1 sm:gap-1.5">
             {/* Typography & Theme Popover Toggle */}
-            <div className="relative">
+            <div className="relative" ref={settingsRef}>
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className="p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center"
@@ -219,7 +240,7 @@ export function ReaderView({
               {/* Typography Popover */}
               {showSettings && (
                 <div
-                  className={`absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] p-4 rounded-2xl shadow-2xl border ${currentTheme.card} ${currentTheme.border} ${currentTheme.text} z-50 animate-fade-in`}
+                  className={`absolute left-1/2 -translate-x-1/2 mt-2 w-64 max-w-[calc(100vw-1.5rem)] p-4 rounded-2xl shadow-2xl border ${currentTheme.card} ${currentTheme.border} ${currentTheme.text} z-50 animate-fade-in`}
                 >
                   <div className="text-xs font-bold uppercase tracking-wider mb-3 opacity-60">
                     Reader Appearance

@@ -48,6 +48,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - Strips ads, tracking scripts, cookie prompts, and clutter.
    - Clean typography with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
    - Adjustable font sizes, font families (Serif, Sans, Mono), and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
+   - Responsive appearance popover centered with safe margin clearance across all mobile and desktop viewports, supporting click-outside and `Esc` shortcut dismissal.
 
 7. **Privacy & Security**:
    - Protected by personal password/PIN (`POCKETBOX_PASSWORD`) with 1-year persistent session cookie.
