@@ -17,6 +17,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { ArticleCard } from '@/components/ArticleCard';
 import { ReaderView } from '@/components/ReaderView';
 import { AddArticleModal } from '@/components/AddArticleModal';
+import { ArticleTagsModal } from '@/components/ArticleTagsModal';
 import { LoginView } from '@/components/LoginView';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { 
@@ -36,6 +37,7 @@ export default function HomePage() {
   const [selectedTagId, setSelectedTagId] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [editingTagsArticle, setEditingTagsArticle] = useState<Article | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -220,6 +222,93 @@ export default function HomePage() {
       fetchMetadata();
     } catch {
       // Offline fallback already updated IndexedDB
+    }
+  };
+
+  // Update article tags (add/remove tags on saved articles)
+  const handleUpdateArticleTags = async (article: Article, tagNames: string[]) => {
+    const normalized = Array.from(
+      new Set(
+        tagNames
+          .map((t) => t.trim().replace(/^#+/, '').trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+
+    const optimisticTags: Tag[] = normalized.map((name) => {
+      const existing =
+        tags.find((t) => t.name.toLowerCase() === name) ||
+        article.tags?.find((t) => t.name.toLowerCase() === name);
+      return existing || { id: `temp-${name}`, name, color: '#6366F1' };
+    });
+
+    const applyArticleTags = (updatedTags: Tag[]) => {
+      const stillMatchesActiveTag =
+        !selectedTagId || updatedTags.some((t) => t.id === selectedTagId);
+
+      if (!stillMatchesActiveTag) {
+        setArticles((prev) => prev.filter((a) => a.id !== article.id));
+      } else {
+        setArticles((prev) => {
+          const exists = prev.some((a) => a.id === article.id);
+          if (exists) {
+            return prev.map((a) => (a.id === article.id ? { ...a, tags: updatedTags } : a));
+          }
+          return [{ ...article, tags: updatedTags }, ...prev];
+        });
+      }
+
+      setSelectedArticle((prev) =>
+        prev && prev.id === article.id ? { ...prev, tags: updatedTags } : prev
+      );
+      updateCachedArticleOffline(article.id, { tags: updatedTags });
+    };
+
+    applyArticleTags(optimisticTags);
+
+    try {
+      const res = await fetch(`/api/articles/${article.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: normalized }),
+      });
+
+      if (res.status === 401) {
+        const data = await res.json();
+        if (data.authRequired) {
+          setNeedsAuth(true);
+          return;
+        }
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        fetchArticles(true);
+        throw new Error(data.error || 'Failed to update tags');
+      }
+
+      if (data.article && Array.isArray(data.article.tags)) {
+        applyArticleTags(data.article.tags);
+      }
+      fetchMetadata();
+    } catch (err: any) {
+      if (err instanceof TypeError || !navigator.onLine) {
+        // Offline fallback already updated IndexedDB
+        return;
+      }
+      throw err;
+    }
+  };
+
+  // Quick remove a single tag from an article (used in ReaderView pills)
+  const handleRemoveSingleTag = async (article: Article, tagName: string) => {
+    const remaining = (article.tags || [])
+      .map((t) => t.name)
+      .filter((name) => name.toLowerCase() !== tagName.toLowerCase());
+    try {
+      await handleUpdateArticleTags(article, remaining);
+    } catch (err) {
+      console.error('Failed to remove tag:', err);
     }
   };
 
@@ -521,6 +610,7 @@ export default function HomePage() {
                   onToggleFavorite={handleToggleFavorite}
                   onToggleArchive={handleToggleArchive}
                   onDelete={handleDeleteArticle}
+                  onEditTags={setEditingTagsArticle}
                 />
               ))}
             </div>
@@ -535,8 +625,19 @@ export default function HomePage() {
           onClose={() => setSelectedArticle(null)}
           onToggleFavorite={handleToggleFavorite}
           onToggleArchive={handleToggleArchive}
+          onEditTags={setEditingTagsArticle}
+          onRemoveTag={handleRemoveSingleTag}
+          isTagsModalOpen={Boolean(editingTagsArticle)}
         />
       )}
+
+      {/* Manage Article Tags Modal */}
+      <ArticleTagsModal
+        article={editingTagsArticle}
+        allTags={tags}
+        onClose={() => setEditingTagsArticle(null)}
+        onSave={handleUpdateArticleTags}
+      />
 
       {/* Add Article Modal */}
       <AddArticleModal

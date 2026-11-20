@@ -13,7 +13,9 @@ import {
   Clock, 
   Globe, 
   Minus, 
-  Plus 
+  Plus,
+  Tag as TagIcon,
+  X
 } from 'lucide-react';
 import type { Article } from '@/lib/types';
 
@@ -22,6 +24,9 @@ interface ReaderViewProps {
   onClose: () => void;
   onToggleFavorite: (article: Article) => void;
   onToggleArchive: (article: Article) => void;
+  onEditTags: (article: Article) => void;
+  onRemoveTag: (article: Article, tagName: string) => void;
+  isTagsModalOpen?: boolean;
 }
 
 type Theme = 'paper' | 'sepia' | 'slate' | 'oled';
@@ -32,6 +37,9 @@ export function ReaderView({
   onClose,
   onToggleFavorite,
   onToggleArchive,
+  onEditTags,
+  onRemoveTag,
+  isTagsModalOpen = false,
 }: ReaderViewProps) {
   // Preferences persisted in localStorage
   const [theme, setTheme] = useState<Theme>('paper');
@@ -45,6 +53,7 @@ export function ReaderView({
 
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
+  const hasTags = Boolean(article.tags && article.tags.length > 0);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -88,6 +97,7 @@ export function ReaderView({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isTagsModalOpen) return;
         if (showSettings) {
           setShowSettings(false);
         } else {
@@ -97,7 +107,7 @@ export function ReaderView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showSettings]);
+  }, [onClose, showSettings, isTagsModalOpen]);
 
   // Close settings popover when clicking or tapping outside
   useEffect(() => {
@@ -157,13 +167,18 @@ export function ReaderView({
   }, [article.id, article.content_html]);
 
   // Theme styling definitions
-  const themeClasses: Record<Theme, { bg: string; text: string; header: string; card: string; border: string }> = {
+  const themeClasses: Record<
+    Theme,
+    { bg: string; text: string; header: string; card: string; border: string; pill: string; pillAdd: string }
+  > = {
     paper: {
       bg: 'bg-[#FCFCFC]',
       text: 'text-[#1C1C1E]',
       header: 'bg-[#FCFCFC]/90 border-[#E5E5EA]',
       card: 'bg-[#F2F2F7]',
       border: 'border-[#E5E5EA]',
+      pill: 'bg-black/[0.05] border-black/10',
+      pillAdd: 'border-black/15 hover:bg-black/[0.06]',
     },
     sepia: {
       bg: 'bg-[#F8F1E5]',
@@ -171,6 +186,8 @@ export function ReaderView({
       header: 'bg-[#F8F1E5]/90 border-[#EBDCC7]',
       card: 'bg-[#EFE4D2]',
       border: 'border-[#EBDCC7]',
+      pill: 'bg-[#3E2723]/[0.07] border-[#3E2723]/15',
+      pillAdd: 'border-[#3E2723]/20 hover:bg-[#3E2723]/[0.08]',
     },
     slate: {
       bg: 'bg-[#181C22]',
@@ -178,6 +195,8 @@ export function ReaderView({
       header: 'bg-[#181C22]/90 border-[#262D37]',
       card: 'bg-[#22272E]',
       border: 'border-[#262D37]',
+      pill: 'bg-white/[0.07] border-white/10',
+      pillAdd: 'border-white/15 hover:bg-white/[0.08]',
     },
     oled: {
       bg: 'bg-[#000000]',
@@ -185,6 +204,8 @@ export function ReaderView({
       header: 'bg-[#000000]/90 border-[#1F1F1F]',
       card: 'bg-[#121212]',
       border: 'border-[#1F1F1F]',
+      pill: 'bg-white/[0.09] border-white/15',
+      pillAdd: 'border-white/20 hover:bg-white/[0.12]',
     },
   };
 
@@ -345,6 +366,22 @@ export function ReaderView({
               )}
             </div>
 
+            {/* Manage Tags */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowSettings(false);
+                onEditTags(article);
+              }}
+              className={`p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center ${
+                hasTags ? 'text-rose-500' : 'opacity-80'
+              }`}
+              title="Manage tags"
+              aria-label="Manage tags"
+            >
+              <TagIcon className="w-4 h-4" />
+            </button>
+
             {/* Toggle Favorite */}
             <button
               onClick={() => onToggleFavorite(article)}
@@ -434,6 +471,42 @@ export function ReaderView({
             <div className="text-xs opacity-70 space-y-1">
               {article.byline && <div>By {article.byline}</div>}
               <div>Saved on {new Date(article.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</div>
+            </div>
+
+            {/* Article Tags Row */}
+            <div className="mt-4 flex flex-wrap items-center gap-1.5">
+              {article.tags &&
+                article.tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className={`inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border transition ${currentTheme.pill}`}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: tag.color || '#10B981' }}
+                    />
+                    <span>#{tag.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveTag(article, tag.name)}
+                      className="p-0.5 rounded-full opacity-60 hover:opacity-100 hover:bg-black/10 transition touch-manipulation"
+                      title={`Remove #${tag.name}`}
+                      aria-label={`Remove tag ${tag.name}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+
+              <button
+                type="button"
+                onClick={() => onEditTags(article)}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-dashed opacity-75 hover:opacity-100 transition touch-manipulation ${currentTheme.pillAdd}`}
+                title="Add or edit tags"
+              >
+                <Plus className="w-3 h-3" />
+                <span>{hasTags ? 'Edit tags' : 'Add tag'}</span>
+              </button>
             </div>
           </div>
 

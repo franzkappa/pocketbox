@@ -162,12 +162,13 @@ export const db = {
   async createTag(name: string, color: string = '#10B981'): Promise<Tag> {
     const client = getClient();
     await ensureSchema(client);
+    const normalizedName = name.trim().replace(/^#+/, '').trim().toLowerCase();
     const id = 't-' + Math.random().toString(36).substring(2, 9);
     await client.execute({
       sql: 'INSERT INTO tags (id, name, color) VALUES (?, ?, ?)',
-      args: [id, name.trim().toLowerCase(), color],
+      args: [id, normalizedName, color],
     });
-    return { id, name: name.trim().toLowerCase(), color, article_count: 0 };
+    return { id, name: normalizedName, color, article_count: 0 };
   },
 
   async deleteTag(id: string): Promise<void> {
@@ -469,7 +470,7 @@ export const db = {
       params.push(updates.folder_id);
     }
 
-    if (fields.length > 0) {
+    if (fields.length > 0 || updates.tags !== undefined) {
       fields.push('updated_at = ?');
       params.push(new Date().toISOString());
       params.push(id);
@@ -494,9 +495,14 @@ export const db = {
       args: [articleId],
     });
 
+    if (!Array.isArray(tagsInput)) return;
+
+    const seen = new Set<string>();
     for (const item of tagsInput) {
-      const trimmed = item.trim().toLowerCase();
-      if (!trimmed) continue;
+      if (typeof item !== 'string') continue;
+      const trimmed = item.trim().replace(/^#+/, '').trim().toLowerCase();
+      if (!trimmed || seen.has(trimmed)) continue;
+      seen.add(trimmed);
 
       const tagRs = await client.execute({
         sql: 'SELECT id FROM tags WHERE id = ? OR name = ?',

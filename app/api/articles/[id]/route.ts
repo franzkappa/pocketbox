@@ -68,6 +68,13 @@ export async function PATCH(
       );
     }
 
+    if (body.tags !== undefined && !Array.isArray(body.tags)) {
+      return NextResponse.json(
+        { success: false, error: 'Tags must be an array of strings' },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+
     const updated = await db.updateArticle(id, body);
 
     return NextResponse.json(

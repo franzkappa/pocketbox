@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI & Scroll Optimizations)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, the Firefox WebExtension, mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), and responsive reader appearance popover positioning are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations & Post-Save Tag Management)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, the Firefox WebExtension, mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, and post-save article tag management are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -204,14 +204,21 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
    - On mobile screens (e.g., iPhone SE at 375px or iPhone 13/14/15/16 at 390px), this caused the menu to overhang the left edge of the screen by 5–20px.
    - Fixed by centering the popover directly beneath the button with `left-1/2 -translate-x-1/2`. This ensures comfortable margins (~30px right, ~75–105px left) on all mobile devices while staying neatly anchored under the button on desktop.
    - Added a click/touch-outside dismissal listener (`settingsRef` on mousedown and touchstart) and updated the `Escape` key shortcut to close the settings menu first before closing the reader view.
+9. **Post-Save Article Tag Management**:
+   - Added [`components/ArticleTagsModal.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleTagsModal.tsx) (`z-[60]` to cleanly layer above `ReaderView` at `z-50`) for toggling existing tags, creating new tags (via `Enter`, `,`, or explicit `+ Add` button for mobile), and clearing/removing assigned tags on already-saved articles.
+   - Wired entry points in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) (dedicated Tag quick-action button + clickable `#tag` pill) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (header Tag action icon + theme-aware tag pills row under the article title with 1-click `×` removal and `+ Add tag` button).
+   - [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx) applies optimistic updates across the article grid (respecting active `selectedTagId` filtering), open `ReaderView`, and IndexedDB (`updateCachedArticleOffline`), persists via `PATCH /api/articles/[id]`, reconciles returned DB tag IDs/colors, and refreshes sidebar metadata.
+   - Hardened [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts) and [`app/api/articles/[id]/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/%5Bid%5D/route.ts) with tag normalization (leading `#` stripping & deduplication), `updated_at` touch on tag-only updates, and `400` array validation.
 
 ---
 
 ## 🔮 6. Future Enhancements
 
-1. **Full-Text Search (FTS5 / libSQL virtual table)**:
+1. **Post-Save Folder Management (Next Planned Session)**:
+   - Allow changing or removing the assigned folder (`folder_id`) on already-saved articles from both `ArticleCard` and `ReaderView` (reusing `PATCH /api/articles/[id]` with `{ folder_id }`, optimistic UI updates, active `selectedFolderId` filter reconciliation, and IndexedDB sync).
+2. **Full-Text Search (FTS5 / libSQL virtual table)**:
    - Index article body text in Turso for instant snippet searching across thousands of long articles.
-2. **EPUB / PDF Export**:
+3. **EPUB / PDF Export**:
    - Add a download action in `ReaderView.tsx` to export clean articles formatted for Kindle / Kobo e-readers.
-3. **Highlights & Notes**:
+4. **Highlights & Notes**:
    - Text selection listener in `ReaderView.tsx` to persist user highlights and marginalia in an `article_highlights` table.

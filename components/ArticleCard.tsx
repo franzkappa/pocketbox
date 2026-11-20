@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe } from 'lucide-react';
+import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Tag as TagIcon } from 'lucide-react';
 import type { Article } from '@/lib/types';
 
 interface ArticleCardProps {
@@ -10,6 +10,7 @@ interface ArticleCardProps {
   onToggleFavorite: (article: Article) => void;
   onToggleArchive: (article: Article) => void;
   onDelete: (article: Article) => void;
+  onEditTags: (article: Article) => void;
 }
 
 export function ArticleCard({
@@ -18,9 +19,11 @@ export function ArticleCard({
   onToggleFavorite,
   onToggleArchive,
   onDelete,
+  onEditTags,
 }: ArticleCardProps) {
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
+  const hasTags = Boolean(article.tags && article.tags.length > 0);
 
   // Format date nicely
   const formattedDate = new Date(article.created_at).toLocaleDateString(undefined, {
@@ -112,10 +115,25 @@ export function ArticleCard({
             )}
 
             {article.tags && article.tags.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 font-medium truncate">
-                #{article.tags[0].name}
-                {article.tags.length > 1 && ` +${article.tags.length - 1}`}
-              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditTags(article);
+                }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium truncate transition touch-manipulation"
+                title="Edit tags"
+                aria-label="Edit tags"
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: article.tags[0].color || '#10B981' }}
+                />
+                <span className="truncate">
+                  #{article.tags[0].name}
+                  {article.tags.length > 1 && ` +${article.tags.length - 1}`}
+                </span>
+              </button>
             )}
 
             <span className="text-[10px] text-slate-400 ml-auto flex-shrink-0">
@@ -125,6 +143,24 @@ export function ArticleCard({
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+            {/* Manage Tags */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTags(article);
+              }}
+              className={`p-2 rounded-lg transition touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 ${
+                hasTags
+                  ? 'text-rose-400 bg-rose-400/10 hover:bg-rose-400/20'
+                  : 'text-slate-400 hover:text-rose-400 hover:bg-slate-800'
+              }`}
+              title="Manage tags"
+              aria-label="Manage tags"
+            >
+              <TagIcon className="w-3.5 h-3.5" />
+            </button>
+
             {/* Favorite Toggle */}
             <button
               onClick={(e) => {

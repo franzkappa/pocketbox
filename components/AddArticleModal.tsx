@@ -60,10 +60,10 @@ export function AddArticleModal({
   };
 
   const handleAddNewTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && newTagInput.trim()) {
+    if ((e.key === 'Enter' || e.key === ',') && newTagInput.trim()) {
       e.preventDefault();
-      const val = newTagInput.trim().toLowerCase();
-      if (!selectedTags.includes(val)) {
+      const val = newTagInput.trim().replace(/^#+/, '').trim().toLowerCase();
+      if (val && !selectedTags.includes(val)) {
         setSelectedTags([...selectedTags, val]);
       }
       setNewTagInput('');
@@ -155,6 +155,18 @@ export function AddArticleModal({
                   </button>
                 );
               })}
+              {selectedTags
+                .filter((name) => !tags.some((t) => t.name === name))
+                .map((customName) => (
+                  <button
+                    type="button"
+                    key={`custom-${customName}`}
+                    onClick={() => toggleTag(customName)}
+                    className="px-2.5 py-1 text-xs rounded-full border bg-rose-500 border-rose-500 text-white transition touch-manipulation"
+                  >
+                    #{customName} ×
+                  </button>
+                ))}
             </div>
             <input
               type="text"
