@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Tag as TagIcon } from 'lucide-react';
+import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Tag as TagIcon, Folder as FolderIcon } from 'lucide-react';
 import type { Article } from '@/lib/types';
 
 interface ArticleCardProps {
@@ -10,6 +10,7 @@ interface ArticleCardProps {
   onToggleFavorite: (article: Article) => void;
   onToggleArchive: (article: Article) => void;
   onDelete: (article: Article) => void;
+  onEditFolder: (article: Article) => void;
   onEditTags: (article: Article) => void;
 }
 
@@ -19,10 +20,12 @@ export function ArticleCard({
   onToggleFavorite,
   onToggleArchive,
   onDelete,
+  onEditFolder,
   onEditTags,
 }: ArticleCardProps) {
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
+  const hasFolder = Boolean(article.folder);
   const hasTags = Boolean(article.tags && article.tags.length > 0);
 
   // Format date nicely
@@ -94,24 +97,30 @@ export function ArticleCard({
           )}
         </div>
 
-        {/* Footer Area: Folder / Tags & Actions */}
-        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-          {/* Folder & Tag Pills */}
-          <div className="flex items-center gap-1.5 overflow-hidden flex-1">
+        {/* Folder & Tag Pills */}
+        {(article.folder || hasTags) && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {article.folder && (
-              <span
-                className="px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 truncate"
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditFolder(article);
+                }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold max-w-[160px] transition hover:brightness-125 touch-manipulation"
                 style={{
                   backgroundColor: `${article.folder.color}20`,
                   color: article.folder.color || '#3B82F6',
                 }}
+                title="Change folder"
+                aria-label={`Change folder (${article.folder.name})`}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: article.folder.color || '#3B82F6' }}
                 />
                 <span className="truncate">{article.folder.name}</span>
-              </span>
+              </button>
             )}
 
             {article.tags && article.tags.length > 0 && (
@@ -121,7 +130,7 @@ export function ArticleCard({
                   e.stopPropagation();
                   onEditTags(article);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium truncate transition touch-manipulation"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium max-w-[160px] transition touch-manipulation"
                 title="Edit tags"
                 aria-label="Edit tags"
               >
@@ -135,14 +144,39 @@ export function ArticleCard({
                 </span>
               </button>
             )}
-
-            <span className="text-[10px] text-slate-400 ml-auto flex-shrink-0">
-              {formattedDate}
-            </span>
           </div>
+        )}
+
+        {/* Footer Area: Date & Actions */}
+        <div
+          className={`${
+            article.folder || hasTags ? 'mt-3' : 'mt-4'
+          } pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2`}
+        >
+          <span className="text-[11px] text-slate-400 flex-shrink-0">
+            {formattedDate}
+          </span>
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+            {/* Move to Folder */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditFolder(article);
+              }}
+              className={`p-2 rounded-lg transition touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 ${
+                hasFolder
+                  ? 'text-blue-400 bg-blue-400/10 hover:bg-blue-400/20'
+                  : 'text-slate-400 hover:text-blue-400 hover:bg-slate-800'
+              }`}
+              title={article.folder ? `Folder: ${article.folder.name} (change)` : 'Move to folder'}
+              aria-label="Move to folder"
+            >
+              <FolderIcon className="w-3.5 h-3.5" />
+            </button>
+
             {/* Manage Tags */}
             <button
               type="button"

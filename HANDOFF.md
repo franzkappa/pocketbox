@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations & Post-Save Tag Management)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, the Firefox WebExtension, mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, and post-save article tag management are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations, Post-Save Tag & Folder Management)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, the Firefox WebExtension, mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, and post-save article tag & folder management are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -209,16 +209,19 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
    - Wired entry points in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) (dedicated Tag quick-action button + clickable `#tag` pill) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (header Tag action icon + theme-aware tag pills row under the article title with 1-click `×` removal and `+ Add tag` button).
    - [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx) applies optimistic updates across the article grid (respecting active `selectedTagId` filtering), open `ReaderView`, and IndexedDB (`updateCachedArticleOffline`), persists via `PATCH /api/articles/[id]`, reconciles returned DB tag IDs/colors, and refreshes sidebar metadata.
    - Hardened [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts) and [`app/api/articles/[id]/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/%5Bid%5D/route.ts) with tag normalization (leading `#` stripping & deduplication), `updated_at` touch on tag-only updates, and `400` array validation.
+10. **Post-Save Article Folder Management**:
+   - Added [`components/ArticleFolderModal.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleFolderModal.tsx) (`z-[60]` above `ReaderView`) with 1-tap folder switching, `"No Folder (General)"` unassignment, and inline colored folder creation (`Create & Move`).
+   - Wired entry points in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) (dedicated Folder quick-action button + clickable folder pill in a dedicated pills row above the footer divider to prevent crowding on mobile) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (header Folder action icon + theme-aware folder pill under the title with click-to-change and 1-click `×` removal, or `Add to folder` button).
+   - [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx) handles optimistic updates across the article grid (respecting active `selectedFolderId` filter), open `ReaderView`, and IndexedDB (`updateCachedArticleOffline`), persists via `PATCH /api/articles/[id]` with `{ folder_id }`, rolls back on server errors, and refreshes sidebar folder counts.
+   - Hardened [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts), [`app/api/articles/[id]/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/%5Bid%5D/route.ts), and [`app/api/folders/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/folders/route.ts) with `getFolderById` existence validation (`404`), `folder_id` type/empty-string normalization (`400` / `null`), and duplicate folder name `409` handling.
 
 ---
 
 ## 🔮 6. Future Enhancements
 
-1. **Post-Save Folder Management (Next Planned Session)**:
-   - Allow changing or removing the assigned folder (`folder_id`) on already-saved articles from both `ArticleCard` and `ReaderView` (reusing `PATCH /api/articles/[id]` with `{ folder_id }`, optimistic UI updates, active `selectedFolderId` filter reconciliation, and IndexedDB sync).
-2. **Full-Text Search (FTS5 / libSQL virtual table)**:
+1. **Full-Text Search (FTS5 / libSQL virtual table)**:
    - Index article body text in Turso for instant snippet searching across thousands of long articles.
-3. **EPUB / PDF Export**:
+2. **EPUB / PDF Export**:
    - Add a download action in `ReaderView.tsx` to export clean articles formatted for Kindle / Kobo e-readers.
-4. **Highlights & Notes**:
+3. **Highlights & Notes**:
    - Text selection listener in `ReaderView.tsx` to persist user highlights and marginalia in an `article_highlights` table.

@@ -14,6 +14,7 @@ import {
   Globe, 
   Minus, 
   Plus,
+  Folder as FolderIcon,
   Tag as TagIcon,
   X
 } from 'lucide-react';
@@ -24,9 +25,12 @@ interface ReaderViewProps {
   onClose: () => void;
   onToggleFavorite: (article: Article) => void;
   onToggleArchive: (article: Article) => void;
+  onEditFolder: (article: Article) => void;
+  onRemoveFolder: (article: Article) => void;
   onEditTags: (article: Article) => void;
   onRemoveTag: (article: Article, tagName: string) => void;
   isTagsModalOpen?: boolean;
+  isFolderModalOpen?: boolean;
 }
 
 type Theme = 'paper' | 'sepia' | 'slate' | 'oled';
@@ -37,9 +41,12 @@ export function ReaderView({
   onClose,
   onToggleFavorite,
   onToggleArchive,
+  onEditFolder,
+  onRemoveFolder,
   onEditTags,
   onRemoveTag,
   isTagsModalOpen = false,
+  isFolderModalOpen = false,
 }: ReaderViewProps) {
   // Preferences persisted in localStorage
   const [theme, setTheme] = useState<Theme>('paper');
@@ -53,6 +60,7 @@ export function ReaderView({
 
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
+  const hasFolder = Boolean(article.folder);
   const hasTags = Boolean(article.tags && article.tags.length > 0);
 
   // Load preferences from localStorage on mount
@@ -97,7 +105,7 @@ export function ReaderView({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (isTagsModalOpen) return;
+        if (isTagsModalOpen || isFolderModalOpen) return;
         if (showSettings) {
           setShowSettings(false);
         } else {
@@ -107,7 +115,7 @@ export function ReaderView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showSettings, isTagsModalOpen]);
+  }, [onClose, showSettings, isTagsModalOpen, isFolderModalOpen]);
 
   // Close settings popover when clicking or tapping outside
   useEffect(() => {
@@ -366,6 +374,22 @@ export function ReaderView({
               )}
             </div>
 
+            {/* Move to Folder */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowSettings(false);
+                onEditFolder(article);
+              }}
+              className={`p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center ${
+                hasFolder ? 'text-blue-500' : 'opacity-80'
+              }`}
+              title={article.folder ? `Folder: ${article.folder.name} (change)` : 'Move to folder'}
+              aria-label="Move to folder"
+            >
+              <FolderIcon className="w-4 h-4" />
+            </button>
+
             {/* Manage Tags */}
             <button
               type="button"
@@ -473,8 +497,47 @@ export function ReaderView({
               <div>Saved on {new Date(article.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</div>
             </div>
 
-            {/* Article Tags Row */}
+            {/* Article Folder & Tags Row */}
             <div className="mt-4 flex flex-wrap items-center gap-1.5">
+              {article.folder ? (
+                <span
+                  className={`inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border transition ${currentTheme.pill}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onEditFolder(article)}
+                    className="inline-flex items-center gap-1.5 hover:opacity-80 transition touch-manipulation"
+                    title="Change folder"
+                    aria-label={`Change folder (${article.folder.name})`}
+                  >
+                    <FolderIcon
+                      className="w-3 h-3 shrink-0"
+                      style={{ color: article.folder.color || '#3B82F6' }}
+                    />
+                    <span>{article.folder.name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFolder(article)}
+                    className="p-0.5 rounded-full opacity-60 hover:opacity-100 hover:bg-black/10 transition touch-manipulation"
+                    title={`Remove from ${article.folder.name}`}
+                    aria-label={`Remove from folder ${article.folder.name}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onEditFolder(article)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-dashed opacity-75 hover:opacity-100 transition touch-manipulation ${currentTheme.pillAdd}`}
+                  title="Add to folder"
+                >
+                  <FolderIcon className="w-3 h-3" />
+                  <span>Add to folder</span>
+                </button>
+              )}
+
               {article.tags &&
                 article.tags.map((tag) => (
                   <span

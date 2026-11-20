@@ -75,6 +75,32 @@ export async function PATCH(
       );
     }
 
+    if (body.folder_id !== undefined) {
+      if (body.folder_id !== null && typeof body.folder_id !== 'string') {
+        return NextResponse.json(
+          { success: false, error: 'folder_id must be a string or null' },
+          { status: 400, headers: corsHeaders() }
+        );
+      }
+
+      const normalizedFolderId =
+        typeof body.folder_id === 'string' && body.folder_id.trim() !== ''
+          ? body.folder_id.trim()
+          : null;
+
+      if (normalizedFolderId !== null) {
+        const folder = await db.getFolderById(normalizedFolderId);
+        if (!folder) {
+          return NextResponse.json(
+            { success: false, error: 'Folder not found' },
+            { status: 404, headers: corsHeaders() }
+          );
+        }
+      }
+
+      body.folder_id = normalizedFolderId;
+    }
+
     const updated = await db.updateArticle(id, body);
 
     return NextResponse.json(

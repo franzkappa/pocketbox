@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, color } = body;
-    if (!name || typeof name !== 'string') {
+    if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json(
         { success: false, error: 'Folder name is required' },
         { status: 400, headers: corsHeaders() }
@@ -50,6 +50,13 @@ export async function POST(request: NextRequest) {
     const folder = await db.createFolder(name, color || '#6366F1');
     return NextResponse.json({ success: true, folder }, { status: 201, headers: corsHeaders() });
   } catch (error: any) {
+    const msg = String(error?.message || '');
+    if (msg.includes('UNIQUE') || msg.includes('SQLITE_CONSTRAINT')) {
+      return NextResponse.json(
+        { success: false, error: 'A folder with this name already exists' },
+        { status: 409, headers: corsHeaders() }
+      );
+    }
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to create folder' },
       { status: 500, headers: corsHeaders() }

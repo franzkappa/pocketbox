@@ -120,16 +120,37 @@ export const db = {
     }));
   },
 
+  async getFolderById(id: string): Promise<Folder | null> {
+    const client = getClient();
+    await ensureSchema(client);
+    const rs = await client.execute({
+      sql: 'SELECT * FROM folders WHERE id = ?',
+      args: [id],
+    });
+    if (rs.rows.length === 0) return null;
+    const row = rs.rows[0];
+    return {
+      id: String(row.id),
+      name: String(row.name),
+      color: String(row.color || '#6366F1'),
+      created_at: String(row.created_at || ''),
+    };
+  },
+
   async createFolder(name: string, color: string = '#6366F1'): Promise<Folder> {
     const client = getClient();
     await ensureSchema(client);
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error('Folder name is required');
+    }
     const id = 'f-' + Math.random().toString(36).substring(2, 9);
     const created_at = new Date().toISOString();
     await client.execute({
       sql: 'INSERT INTO folders (id, name, color, created_at) VALUES (?, ?, ?, ?)',
-      args: [id, name.trim(), color, created_at],
+      args: [id, trimmed, color, created_at],
     });
-    return { id, name: name.trim(), color, created_at, article_count: 0 };
+    return { id, name: trimmed, color, created_at, article_count: 0 };
   },
 
   async deleteFolder(id: string): Promise<void> {
@@ -467,7 +488,7 @@ export const db = {
     }
     if (updates.folder_id !== undefined) {
       fields.push('folder_id = ?');
-      params.push(updates.folder_id);
+      params.push(updates.folder_id || null);
     }
 
     if (fields.length > 0 || updates.tags !== undefined) {

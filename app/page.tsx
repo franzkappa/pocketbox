@@ -18,6 +18,7 @@ import { ArticleCard } from '@/components/ArticleCard';
 import { ReaderView } from '@/components/ReaderView';
 import { AddArticleModal } from '@/components/AddArticleModal';
 import { ArticleTagsModal } from '@/components/ArticleTagsModal';
+import { ArticleFolderModal } from '@/components/ArticleFolderModal';
 import { LoginView } from '@/components/LoginView';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { 
@@ -38,6 +39,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingTagsArticle, setEditingTagsArticle] = useState<Article | null>(null);
+  const [editingFolderArticle, setEditingFolderArticle] = useState<Article | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -312,6 +314,100 @@ export default function HomePage() {
     }
   };
 
+  // Update article folder (move saved article to another folder or remove from folder)
+  const handleUpdateArticleFolder = async (
+    article: Article,
+    folderId: string | null,
+    folderHint?: Folder | null
+  ) => {
+    const normalizedFolderId = folderId && folderId.trim() ? folderId.trim() : null;
+    const optimisticFolder: Folder | null = normalizedFolderId
+      ? folderHint || folders.find((f) => f.id === normalizedFolderId) || null
+      : null;
+
+    const applyArticleFolder = (updatedFolderId: string | null, updatedFolder: Folder | null) => {
+      const stillMatchesActiveFolder =
+        !selectedFolderId || updatedFolderId === selectedFolderId;
+
+      if (!stillMatchesActiveFolder) {
+        setArticles((prev) => prev.filter((a) => a.id !== article.id));
+      } else {
+        setArticles((prev) => {
+          const exists = prev.some((a) => a.id === article.id);
+          if (exists) {
+            return prev.map((a) =>
+              a.id === article.id
+                ? { ...a, folder_id: updatedFolderId, folder: updatedFolder }
+                : a
+            );
+          }
+          return [
+            { ...article, folder_id: updatedFolderId, folder: updatedFolder },
+            ...prev,
+          ];
+        });
+      }
+
+      setSelectedArticle((prev) =>
+        prev && prev.id === article.id
+          ? { ...prev, folder_id: updatedFolderId, folder: updatedFolder }
+          : prev
+      );
+      updateCachedArticleOffline(article.id, {
+        folder_id: updatedFolderId,
+        folder: updatedFolder,
+      });
+    };
+
+    const previousFolderId = article.folder_id ?? null;
+    const previousFolder = article.folder ?? null;
+
+    applyArticleFolder(normalizedFolderId, optimisticFolder);
+
+    try {
+      const res = await fetch(`/api/articles/${article.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_id: normalizedFolderId }),
+      });
+
+      if (res.status === 401) {
+        const data = await res.json();
+        if (data.authRequired) {
+          setNeedsAuth(true);
+          return;
+        }
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        applyArticleFolder(previousFolderId, previousFolder);
+        fetchArticles(true);
+        throw new Error(data.error || 'Failed to update folder');
+      }
+
+      if (data.article) {
+        applyArticleFolder(data.article.folder_id ?? null, data.article.folder ?? null);
+      }
+      fetchMetadata();
+    } catch (err: any) {
+      if (err instanceof TypeError || !navigator.onLine) {
+        // Offline fallback already updated IndexedDB
+        return;
+      }
+      throw err;
+    }
+  };
+
+  // Quick remove folder from an article (used in ReaderView folder pill)
+  const handleRemoveArticleFolder = async (article: Article) => {
+    try {
+      await handleUpdateArticleFolder(article, null, null);
+    } catch (err) {
+      console.error('Failed to remove folder:', err);
+    }
+  };
+
   // Delete article
   const handleDeleteArticle = async (article: Article) => {
     setArticles((prev) => prev.filter((a) => a.id !== article.id));
@@ -355,6 +451,31 @@ export default function HomePage() {
     if (data.success) {
       fetchMetadata();
     }
+  };
+
+  const handleCreateFolderFromModal = async (name: string, color?: string): Promise<Folder> => {
+    const res = await fetch('/api/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, color }),
+    });
+    if (res.status === 401) {
+      const data = await res.json();
+      if (data.authRequired) {
+        setNeedsAuth(true);
+        throw new Error('Authentication required');
+      }
+    }
+    const data = await res.json();
+    if (!res.ok || !data.success || !data.folder) {
+      throw new Error(data.error || 'Failed to create folder');
+    }
+    const created: Folder = data.folder;
+    setFolders((prev) =>
+      [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+    );
+    fetchMetadata();
+    return created;
   };
 
   const handleDeleteFolder = async (id: string) => {
@@ -610,6 +731,7 @@ export default function HomePage() {
                   onToggleFavorite={handleToggleFavorite}
                   onToggleArchive={handleToggleArchive}
                   onDelete={handleDeleteArticle}
+                  onEditFolder={setEditingFolderArticle}
                   onEditTags={setEditingTagsArticle}
                 />
               ))}
@@ -625,11 +747,23 @@ export default function HomePage() {
           onClose={() => setSelectedArticle(null)}
           onToggleFavorite={handleToggleFavorite}
           onToggleArchive={handleToggleArchive}
+          onEditFolder={setEditingFolderArticle}
+          onRemoveFolder={handleRemoveArticleFolder}
           onEditTags={setEditingTagsArticle}
           onRemoveTag={handleRemoveSingleTag}
           isTagsModalOpen={Boolean(editingTagsArticle)}
+          isFolderModalOpen={Boolean(editingFolderArticle)}
         />
       )}
+
+      {/* Move to Folder Modal */}
+      <ArticleFolderModal
+        article={editingFolderArticle}
+        folders={folders}
+        onClose={() => setEditingFolderArticle(null)}
+        onSelectFolder={handleUpdateArticleFolder}
+        onCreateFolder={handleCreateFolderFromModal}
+      />
 
       {/* Manage Article Tags Modal */}
       <ArticleTagsModal

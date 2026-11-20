@@ -50,8 +50,9 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - Adjustable font sizes, font families (Serif, Sans, Mono), and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
    - Responsive appearance popover centered with safe margin clearance across all mobile and desktop viewports, supporting click-outside and `Esc` shortcut dismissal.
 
-7. **Flexible Tagging (Before & After Saving)**:
-   - Assign existing or newly created tags when saving an article, and add or remove tags at any time afterward from either the **Library cards** or directly inside the **Reader View**.
+7. **Flexible Organization — Folders & Tags (Before & After Saving)**:
+   - Assign folders and tags when saving an article, and move articles between folders (or remove them to General) and add/remove tags at any time afterward from either the **Library cards** or directly inside the **Reader View**.
+   - Dedicated **Move to Folder modal** (`ArticleFolderModal`) with 1-tap folder switching, inline colored folder creation, optimistic UI updates, sidebar count refresh, and IndexedDB sync.
    - Dedicated **Manage Tags modal** (`ArticleTagsModal`) with real-time filtering, 1-tap tag creation, optimistic UI updates, sidebar tag count refresh, and automatic IndexedDB offline cache sync.
 
 8. **Privacy & Security**:
@@ -228,6 +229,7 @@ pocketbox/
 │   ├── ArticleCard.tsx       # Article preview card with quick actions
 │   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes)
 │   ├── AddArticleModal.tsx   # Manual URL input modal
+│   ├── ArticleFolderModal.tsx# Post-save folder picker modal (move/create/unassign folder)
 │   ├── ArticleTagsModal.tsx  # Post-save tag editor modal (add/create/remove tags)
 │   └── LoginView.tsx         # Password/PIN login view
 ├── public/
