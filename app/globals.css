@@ -109,6 +109,11 @@ body {
   border-radius: 8px;
   margin: 1.75em auto;
   display: block;
+  /* GPU hardware acceleration & anti-flicker on mobile WebKit and Chromium */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .reader-content figure {

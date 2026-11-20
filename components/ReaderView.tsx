@@ -38,8 +38,9 @@ export function ReaderView({
   const [fontFamily, setFontFamily] = useState<FontFamily>('serif');
   const [fontSize, setFontSize] = useState<number>(19);
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [scrollProgress, setScrollProgress] = useState<number>(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const rafIdRef = useRef<number | null>(null);
 
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
@@ -93,26 +94,46 @@ export function ReaderView({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Track scroll progress
+  // Track scroll progress directly on DOM node via requestAnimationFrame (no React re-renders while scrolling)
   useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
     const handleScroll = () => {
-      const el = contentRef.current;
-      if (!el) return;
-      const totalHeight = el.scrollHeight - el.clientHeight;
-      if (totalHeight <= 0) {
-        setScrollProgress(100);
-        return;
-      }
-      const progress = (el.scrollTop / totalHeight) * 100;
-      setScrollProgress(Math.min(100, Math.max(0, progress)));
+      if (rafIdRef.current !== null) return;
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (!el || !progressBarRef.current) return;
+        const totalHeight = el.scrollHeight - el.clientHeight;
+        if (totalHeight <= 0) {
+          progressBarRef.current.style.width = '100%';
+          return;
+        }
+        const progress = Math.min(100, Math.max(0, (el.scrollTop / totalHeight) * 100));
+        progressBarRef.current.style.width = `${progress}%`;
+      });
     };
 
-    const el = contentRef.current;
-    if (el) {
-      el.addEventListener('scroll', handleScroll, { passive: true });
-      return () => el.removeEventListener('scroll', handleScroll);
-    }
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
   }, []);
+
+  // Ensure all images in article content decode asynchronously to eliminate scroll stutter and flicker
+  useEffect(() => {
+    if (!contentRef.current) return;
+    const imgs = contentRef.current.querySelectorAll('.reader-content img');
+    imgs.forEach((img) => {
+      if (!img.getAttribute('decoding')) {
+        img.setAttribute('decoding', 'async');
+      }
+    });
+  }, [article.id, article.content_html]);
 
   // Theme styling definitions
   const themeClasses: Record<Theme, { bg: string; text: string; header: string; card: string; border: string }> = {
@@ -346,10 +367,11 @@ export function ReaderView({
         </div>
 
         {/* Scroll Progress Bar along header bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/5 dark:bg-white/10">
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/5 dark:bg-white/10 pointer-events-none">
           <div
-            className="h-full bg-rose-500 transition-all duration-150"
-            style={{ width: `${scrollProgress}%` }}
+            ref={progressBarRef}
+            className="h-full bg-rose-500 will-change-[width]"
+            style={{ width: '0%' }}
           />
         </div>
       </header>
@@ -361,6 +383,7 @@ export function ReaderView({
           if (showSettings) setShowSettings(false);
         }}
         className="flex-1 overflow-y-auto px-4 py-6 md:py-12 pb-[calc(var(--sab)+3rem)] overscroll-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="max-w-[680px] mx-auto">
           {/* Article Header Metadata */}
@@ -395,12 +418,22 @@ export function ReaderView({
 
           {/* Lead Image (if present) */}
           {article.lead_image_url && (
-            <div className="mb-8 rounded-2xl overflow-hidden shadow-lg">
+            <div
+              className="mb-8 rounded-2xl overflow-hidden shadow-lg isolate"
+              style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
+            >
               <img
                 src={article.lead_image_url}
                 alt={article.title}
                 className="w-full max-h-[420px] object-cover"
                 loading="eager"
+                decoding="async"
+                style={{
+                  transform: 'translateZ(0)',
+                  WebkitTransform: 'translateZ(0)',
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                }}
               />
             </div>
           )}

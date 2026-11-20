@@ -167,8 +167,9 @@ function cleanContentHtml(html: string, baseUrl: string): string {
         // keep as is
       }
     }
-    // Lazy loading & responsive styling
+    // Lazy loading, async decoding & responsive styling
     img.setAttribute('loading', 'lazy');
+    img.setAttribute('decoding', 'async');
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
   });

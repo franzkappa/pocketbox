@@ -31,22 +31,33 @@ export function ArticleCard({
   return (
     <article
       onClick={() => onOpen(article)}
-      className="group relative flex flex-col justify-between bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 shadow-sm hover:shadow-xl hover:shadow-black/40 hover:-translate-y-0.5"
+      className="group relative flex flex-col justify-between bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 shadow-sm hover:shadow-xl hover:shadow-black/40 hover:-translate-y-0.5 isolate"
+      style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
     >
       {/* Top Media / Thumbnail */}
       {article.lead_image_url ? (
-        <div className="relative w-full h-44 bg-slate-950 overflow-hidden">
+        <div
+          className="relative w-full h-44 bg-slate-950 overflow-hidden isolate"
+          style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
+        >
           <img
             src={article.lead_image_url}
             alt={article.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
+            decoding="async"
+            style={{
+              transform: 'translateZ(0)',
+              WebkitTransform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+            }}
             onError={(e) => {
               // Hide image container on broken image link
               (e.target as HTMLElement).parentElement?.classList.add('hidden');
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80 pointer-events-none" />
         </div>
       ) : (
         <div className="w-full h-1.5 bg-gradient-to-r from-rose-500/30 to-purple-500/30" />

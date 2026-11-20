@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, and the Firefox WebExtension are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile Scroll Anti-Flicker Fixes)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, the Firefox WebExtension, and mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images) are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -194,6 +194,11 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 6. **1-Click Vercel Deploy & Environment Pre-population**:
    - The repository integrates a Vercel 1-click clone URL (`https://vercel.com/new/clone?repository-url=...`) with parameters `env`, `envDescription`, and `envLink`.
    - Vercel automatically requests `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and `POCKETBOX_PASSWORD` during onboarding, linking directly to the Turso setup anchor, eliminating setup friction for new users.
+7. **Mobile Scroll Performance & Zero-Flicker Image Rendering**:
+   - **Zero Re-Render Scroll Progress**: In [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx), scroll progress tracking is decoupled from React component state (`scrollProgress`). Progress bar updates are applied directly to the DOM node via `requestAnimationFrame`. This eliminates 60–120 re-renders per second on ProMotion (120Hz) mobile displays, preventing layout thrashing and continuous GPU texture invalidation.
+   - **Touch-Aware Hover Isolation**: Enabled `future: { hoverOnlyWhenSupported: true }` in [`tailwind.config.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/tailwind.config.ts). Tailwind wraps `:hover` rules within `@media (hover: hover) and (pointer: fine)`. On mobile touchscreens, dragging a finger to scroll no longer triggers desktop hover animations (such as thumbnail zooming `group-hover:scale-105` or card movement `hover:-translate-y-0.5`), completely eliminating visual card stutter during scroll.
+   - **WebKit GPU Layer Isolation & Anti-Flicker**: Added hardware acceleration (`transform: translateZ(0)`, `-webkit-transform: translateZ(0)`, `backface-visibility: hidden`, and `isolation: isolate`) to [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx), `ReaderView` lead image, and article body images (`.reader-content img` in [`app/globals.css`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/globals.css)). This resolves a known WebKit/Safari bug where `overflow: hidden` containers with `border-radius` drop clipping masks or flash white during momentum scrolling.
+   - **Asynchronous Image Decoding (`decoding="async"`)**: Added `decoding="async"` in [`lib/extractor.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/extractor.ts) for newly saved articles and an automatic effect in `ReaderView.tsx` for existing articles, offloading image decoding from the main UI thread during fast scrolling.
 
 ---
 

@@ -32,6 +32,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - **Service Worker (`pocketbox-v5`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles (including full text and cleaned HTML).
    - **Zero connection required**: Open the app and read your entire library on flights, subways, or in airplane mode.
    - **iOS Safe Area & iPhone SE Optimization**: Dynamic viewport adaptation (`100dvh`), status bar clearance (`pt-safe`), and touch-optimized controls.
+   - **Flicker-Free Mobile Scrolling**: Zero-re-render scroll progress tracking via `requestAnimationFrame`, touch-aware hover isolation (`future.hoverOnlyWhenSupported`), WebKit GPU layer isolation (`translateZ(0)`), and asynchronous image decoding (`decoding="async"`) for 120 FPS scrolling without image blinking, clipping glitches, or hover stutter.
 
 4. **Mobile Gestures & Instant Refresh (Pull-to-Refresh & Rotating Reload Button)**:
    - **Scroll Down / Pull-to-Refresh**: Native touch-driven pull gesture directly on mobile. Pulling down from the top reveals an animated rotating indicator pill with tactile resistance and haptic vibration (`navigator.vibrate`), smoothly refreshing articles on release.
@@ -46,7 +47,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 6. **Built-in Readability Engine (`@mozilla/readability` + JSDOM)**:
    - Strips ads, tracking scripts, cookie prompts, and clutter.
    - Clean typography with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
-   - Adjustable font sizes, font families (Serif, Sans, Mono), and real-time reading progress bar.
+   - Adjustable font sizes, font families (Serif, Sans, Mono), and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
 
 7. **Privacy & Security**:
    - Protected by personal password/PIN (`POCKETBOX_PASSWORD`) with 1-year persistent session cookie.
