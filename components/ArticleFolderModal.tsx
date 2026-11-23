@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Folder as FolderIcon, Inbox, Plus, Check, Loader2 } from 'lucide-react';
-import type { Article, Folder } from '@/lib/types';
+import { X, Folder as FolderIcon, Mail, Inbox, Plus, Check, Loader2 } from 'lucide-react';
+import type { Article, Folder, FolderType } from '@/lib/types';
 
 interface ArticleFolderModalProps {
   article: Article | null;
   folders: Folder[];
   onClose: () => void;
   onSelectFolder: (article: Article, folderId: string | null, folder?: Folder | null) => Promise<void>;
-  onCreateFolder: (name: string, color?: string) => Promise<Folder>;
+  onCreateFolder: (name: string, color?: string, folderType?: FolderType) => Promise<Folder>;
 }
 
 const FOLDER_COLORS = [
@@ -41,7 +41,7 @@ export function ArticleFolderModal({
   useEffect(() => {
     if (article) {
       setNewFolderName('');
-      setSelectedColor(FOLDER_COLORS[0]);
+      setSelectedColor(article.source_type === 'newsletter' ? '#6366F1' : FOLDER_COLORS[0]);
       setPendingTarget(undefined);
       setCreating(false);
       setError(null);
@@ -62,6 +62,11 @@ export function ArticleFolderModal({
 
   if (!article) return null;
 
+  const isNewsletter = article.source_type === 'newsletter';
+  const targetFolderType: FolderType = isNewsletter ? 'newsletter' : 'article';
+  const relevantFolders = folders.filter((f) =>
+    isNewsletter ? f.folder_type === 'newsletter' || f.id === article.folder_id : f.folder_type !== 'newsletter' || f.id === article.folder_id
+  );
   const currentFolderId = article.folder_id || null;
 
   const handleSelect = async (targetFolderId: string | null, targetFolder?: Folder | null) => {
@@ -99,7 +104,7 @@ export function ArticleFolderModal({
     try {
       setCreating(true);
       setError(null);
-      const created = await onCreateFolder(trimmed, selectedColor);
+      const created = await onCreateFolder(trimmed, selectedColor, targetFolderType);
       await onSelectFolder(article, created.id, created);
       onClose();
     } catch (err: any) {
@@ -124,10 +129,22 @@ export function ArticleFolderModal({
         <div className="flex items-start justify-between gap-3 pb-3 sm:pb-4 border-b border-slate-800 shrink-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-                <FolderIcon className="w-4 h-4" />
+              <div
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  isNewsletter
+                    ? 'bg-indigo-500/20 text-indigo-400'
+                    : 'bg-blue-500/20 text-blue-400'
+                }`}
+              >
+                {isNewsletter ? (
+                  <Mail className="w-4 h-4" />
+                ) : (
+                  <FolderIcon className="w-4 h-4" />
+                )}
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-white">Move to Folder</h3>
+              <h3 className="text-sm sm:text-base font-bold text-white">
+                {isNewsletter ? 'Move to Newsletter Folder' : 'Move to Folder'}
+              </h3>
             </div>
             <p className="mt-1.5 text-xs text-slate-400 line-clamp-1">{article.title}</p>
           </div>
@@ -176,7 +193,7 @@ export function ArticleFolderModal({
           </button>
 
           {/* Existing Folders */}
-          {folders.map((folder) => {
+          {relevantFolders.map((folder) => {
             const isCurrent = currentFolderId === folder.id;
             const isPending = pendingTarget === folder.id;
             return (

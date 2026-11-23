@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pocketbox-v6';
+const CACHE_NAME = 'pocketbox-v7';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

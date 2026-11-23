@@ -267,6 +267,7 @@ function extractGmailNewsletterInPage() {
       title: subject,
       siteName,
       byline,
+      senderName,
       senderEmail,
       webUrl,
       gmailUrl,
@@ -346,6 +347,7 @@ function extractGmailNewsletterInPage() {
     title: rawTitle,
     siteName,
     byline,
+    senderName,
     senderEmail,
     webUrl,
     gmailUrl,
@@ -380,12 +382,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const linkHint = document.getElementById('linkHint');
   const tabTitle = document.getElementById('tabTitle');
   const tabUrl = document.getElementById('tabUrl');
+  const folderLabel = document.getElementById('folderLabel');
   const folderSelect = document.getElementById('folderSelect');
+  const newFolderBox = document.getElementById('newFolderBox');
+  const newFolderHint = document.getElementById('newFolderHint');
+  const newFolderNameInput = document.getElementById('newFolderNameInput');
   const tagsInput = document.getElementById('tagsInput');
   const saveForm = document.getElementById('saveForm');
   const btnSave = document.getElementById('btnSave');
   const alertBox = document.getElementById('alertBox');
   const openLibraryLink = document.getElementById('openLibraryLink');
+
+  let autoSuggestedFolderName = '';
 
   // Settings elements
   const btnToggleSettings = document.getElementById('btnToggleSettings');
@@ -490,7 +498,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     tabTitle.textContent = 'Unable to get tab info';
   }
 
-  // Check server status & load folders
+  function updateNewFolderBoxVisibility() {
+    if (!isGmailTab || !newFolderBox || !newFolderNameInput) return;
+    const val = folderSelect.value;
+    if (val === '__auto_new__') {
+      newFolderBox.classList.remove('hidden');
+      if (newFolderHint) {
+        newFolderHint.textContent = '✨ Nuova cartella automatica (puoi modificarne il nome):';
+      }
+      if (!newFolderNameInput.value.trim()) {
+        newFolderNameInput.value = autoSuggestedFolderName;
+      }
+    } else if (val === '__custom_new__') {
+      newFolderBox.classList.remove('hidden');
+      if (newFolderHint) {
+        newFolderHint.textContent = '➕ Nome della nuova cartella newsletter:';
+      }
+      newFolderNameInput.focus();
+    } else {
+      newFolderBox.classList.add('hidden');
+    }
+  }
+
+  folderSelect.addEventListener('change', () => {
+    if (folderSelect.value === '__custom_new__' && newFolderNameInput) {
+      newFolderNameInput.value = '';
+    } else if (folderSelect.value === '__auto_new__' && newFolderNameInput) {
+      newFolderNameInput.value = autoSuggestedFolderName;
+    }
+    updateNewFolderBoxVisibility();
+  });
+
+  if (newFolderNameInput) {
+    newFolderNameInput.addEventListener('input', () => {
+      const opt = folderSelect.querySelector('option[value="__auto_new__"]');
+      const customVal = newFolderNameInput.value.trim();
+      if (opt && folderSelect.value === '__auto_new__') {
+        opt.textContent = `✨ Nuova cartella: ${customVal || autoSuggestedFolderName}`;
+      }
+    });
+  }
+
+  // Check server status & load folders (+ auto-detect newsletter folder on Gmail tabs)
   async function checkServerAndLoadFolders() {
     try {
       const res = await fetch(`${config.url}/api/folders`, {
@@ -503,9 +552,99 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusText.textContent = 'Online';
 
         const data = await res.json();
-        if (data.success && data.folders) {
+        const allFolders = (data.success && Array.isArray(data.folders)) ? data.folders : [];
+
+        if (isGmailTab && gmailNewsletterData) {
+          if (folderLabel) folderLabel.textContent = 'Newsletter Folder (Auto)';
+          const newsletterFolders = allFolders.filter((f) => f.folder_type === 'newsletter');
+
+          // Query multi-indicator classifier on server
+          let detected = null;
+          try {
+            const detectRes = await fetch(`${config.url}/api/folders/detect-newsletter`, {
+              method: 'POST',
+              headers: getAuthHeaders(config.apiKey),
+              body: JSON.stringify({
+                title: gmailNewsletterData.title,
+                site_name: gmailNewsletterData.siteName,
+                byline: gmailNewsletterData.byline,
+                sender_email: gmailNewsletterData.senderEmail,
+                sender_name: gmailNewsletterData.senderName,
+                url: gmailNewsletterData.url,
+                html: (gmailNewsletterData.html || '').slice(0, 60000),
+              }),
+              signal: AbortSignal.timeout(5000),
+            });
+            if (detectRes.ok) {
+              const detectData = await detectRes.json();
+              if (detectData && detectData.success) {
+                detected = detectData;
+              }
+            }
+          } catch (detectErr) {
+            console.warn('[PocketBox Popup] Auto-detect newsletter folder fallback:', detectErr);
+          }
+
+          folderSelect.innerHTML = '';
+
+          if (detected && detected.matchedFolder) {
+            // Matched an existing newsletter folder
+            autoSuggestedFolderName = detected.matchedFolder.name;
+            const matchedOpt = document.createElement('option');
+            matchedOpt.value = detected.matchedFolder.id;
+            matchedOpt.textContent = `📁 Auto: ${detected.matchedFolder.name}`;
+            folderSelect.appendChild(matchedOpt);
+
+            newsletterFolders
+              .filter((f) => f.id !== detected.matchedFolder.id)
+              .forEach((folder) => {
+                const opt = document.createElement('option');
+                opt.value = folder.id;
+                opt.textContent = `📁 ${folder.name}`;
+                folderSelect.appendChild(opt);
+              });
+
+            const createOpt = document.createElement('option');
+            createOpt.value = '__custom_new__';
+            createOpt.textContent = '➕ Crea nuova cartella newsletter...';
+            folderSelect.appendChild(createOpt);
+          } else {
+            // New newsletter series detected
+            autoSuggestedFolderName =
+              (detected && detected.suggestedFolderName) ||
+              gmailNewsletterData.siteName ||
+              'Newsletter';
+
+            const autoNewOpt = document.createElement('option');
+            autoNewOpt.value = '__auto_new__';
+            autoNewOpt.textContent = `✨ Nuova cartella: ${autoSuggestedFolderName}`;
+            folderSelect.appendChild(autoNewOpt);
+
+            if (newFolderNameInput) {
+              newFolderNameInput.value = autoSuggestedFolderName;
+            }
+
+            newsletterFolders.forEach((folder) => {
+              const opt = document.createElement('option');
+              opt.value = folder.id;
+              opt.textContent = `📁 ${folder.name}`;
+              folderSelect.appendChild(opt);
+            });
+          }
+
+          const noneOpt = document.createElement('option');
+          noneOpt.value = '__none__';
+          noneOpt.textContent = 'Nessuna cartella';
+          folderSelect.appendChild(noneOpt);
+
+          updateNewFolderBoxVisibility();
+        } else {
+          // Standard web article tab: show article folders
+          if (folderLabel) folderLabel.textContent = 'Folder';
+          if (newFolderBox) newFolderBox.classList.add('hidden');
+          const articleFolders = allFolders.filter((f) => f.folder_type !== 'newsletter');
           folderSelect.innerHTML = '<option value="">No Folder (General)</option>';
-          data.folders.forEach((folder) => {
+          articleFolders.forEach((folder) => {
             const opt = document.createElement('option');
             opt.value = folder.id;
             opt.textContent = folder.name;
@@ -548,7 +687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSave.textContent = isGmailTab ? 'Saving Newsletter...' : 'Extracting & Saving...';
     clearAlert();
 
-    const folderId = folderSelect.value || undefined;
+    const selectedFolderVal = folderSelect.value;
     const tags = tagsInput.value
       .split(',')
       .map((t) => t.trim())
@@ -563,6 +702,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           htmlPayload = htmlPayload.slice(0, MAX_HTML_BYTES);
         }
 
+        let folderIdParam = undefined;
+        let folderNameParam = undefined;
+        let autoFolderParam = true;
+
+        if (selectedFolderVal === '__none__') {
+          autoFolderParam = false;
+        } else if (selectedFolderVal === '__auto_new__' || selectedFolderVal === '__custom_new__') {
+          const customName = newFolderNameInput ? newFolderNameInput.value.trim() : '';
+          folderNameParam = customName || autoSuggestedFolderName || undefined;
+        } else if (selectedFolderVal) {
+          folderIdParam = selectedFolderVal;
+        }
+
         payload = {
           url: gmailNewsletterData.url,
           title: gmailNewsletterData.title,
@@ -570,7 +722,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           source_type: 'newsletter',
           site_name: gmailNewsletterData.siteName,
           byline: gmailNewsletterData.byline || undefined,
-          folder_id: folderId,
+          sender_email: gmailNewsletterData.senderEmail || undefined,
+          sender_name: gmailNewsletterData.senderName || undefined,
+          folder_id: folderIdParam,
+          folder_name: folderNameParam,
+          auto_folder: autoFolderParam,
           tags: tags,
         };
       } else {
@@ -602,7 +758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           title: currentTab.title,
           html: tabHtml || undefined,
           source_type: 'article',
-          folder_id: folderId,
+          folder_id: selectedFolderVal || undefined,
           tags: tags,
         };
       }
@@ -621,8 +777,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (res.ok && data && data.success) {
+        const assignedFolderName =
+          (data.autoFolder && data.autoFolder.name) ||
+          (data.article && data.article.folder && data.article.folder.name) ||
+          null;
         const msg = isGmailTab
-          ? data.alreadyExists
+          ? assignedFolderName
+            ? `Newsletter salvata in 📁 "${assignedFolderName}"!`
+            : data.alreadyExists
             ? 'Newsletter already in library (updated)!'
             : 'Newsletter saved to PocketBox!'
           : data.alreadyExists
@@ -630,7 +792,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           : 'Saved successfully!';
         showAlert(msg, 'success');
         btnSave.textContent = '✓ Saved!';
-        setTimeout(() => window.close(), 1200);
+        setTimeout(() => window.close(), 1300);
       } else if (res.status === 413) {
         throw new Error('Contenuto troppo grande per il server (HTTP 413).');
       } else {

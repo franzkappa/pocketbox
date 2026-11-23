@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "PocketBox - Read It Later",
-  "version": "0.2.0",
-  "description": "1-click tab & Gmail newsletter saving with client-side DOM extraction for PocketBox",
+  "version": "0.3.0",
+  "description": "1-click tab & Gmail newsletter saving with automatic multi-signal newsletter folder organization for PocketBox",
   "browser_specific_settings": {
     "gecko": {
       "id": "pocketbox@local.selfhosted",

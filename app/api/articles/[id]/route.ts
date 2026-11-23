@@ -103,6 +103,14 @@ export async function PATCH(
 
     const updated = await db.updateArticle(id, body);
 
+    if (
+      body.folder_id !== undefined &&
+      body.folder_id !== null &&
+      (existing.source_type === 'newsletter' || updated?.source_type === 'newsletter')
+    ) {
+      await db.learnNewsletterFolderFromArticle(updated || existing, body.folder_id);
+    }
+
     return NextResponse.json(
       { success: true, article: updated },
       { headers: corsHeaders() }

@@ -29,7 +29,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 
 3. **Offline-First PWA on iPhone (True Offline Reading)**:
    - Add to Home Screen as a standalone fullscreen app with custom icon and splash styling.
-   - **Service Worker (`pocketbox-v6`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles and newsletters (including full text and cleaned HTML) with full offline filtering across Inbox, Newsletters, Favorites, Archive, Folders, and Tags.
+   - **Service Worker (`pocketbox-v7`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles and newsletters (including full text and cleaned HTML) with full offline filtering across Inbox, Newsletters, Favorites, Archive, Folders, and Tags.
    - **Zero connection required**: Open the app and read your entire library on flights, subways, or in airplane mode.
    - **iOS Safe Area & iPhone SE Optimization**: Dynamic viewport adaptation (`100dvh`), status bar clearance (`pt-safe`), and touch-optimized controls.
    - **Flicker-Free Mobile Scrolling**: Zero-re-render scroll progress tracking via `requestAnimationFrame`, touch-aware hover isolation (`future.hoverOnlyWhenSupported`), WebKit GPU layer isolation (`translateZ(0)`), and asynchronous image decoding (`decoding="async"`) for 120 FPS scrolling without image blinking, clipping glitches, or hover stutter.
@@ -38,14 +38,15 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - **Scroll Down / Pull-to-Refresh**: Native touch-driven pull gesture directly on mobile. Pulling down from the top reveals an animated rotating indicator pill with tactile resistance and haptic vibration (`navigator.vibrate`), smoothly refreshing articles on release.
    - **Rotating Arrow Button**: Prominently placed in the top navigation bar and sidebar footer. Tapping the button triggers a rotating animation (`animate-spin`) while performing silent background revalidation, avoiding any jarring flashes or blanking of the library view.
 
-5. **Desktop Firefox Extension (Manifest V3, v0.2.0)**:
+5. **Desktop Firefox Extension (Manifest V3, v0.3.0)**:
    - 1-click toolbar popup to save the active browser tab or an open **Gmail newsletter**.
    - Configurable server URL and API key/password settings via built-in settings panel (⚙️).
    - **Client-Side DOM Extraction & Payload Protection**: Injects and captures pre-authenticated, challenge-passed DOM (pruning `<script>`, `<style>`, `<noscript>`, and oversized inline SVGs/data URIs to stay well below Vercel's 4.5MB serverless limit) to bypass aggressive anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération* and *Le Monde*.
-   - **Gmail Newsletter Extractor (`mail.google.com`)**: Automatically detects open emails (including Gmail's *"View entire message"* `view=lg` view), extracts only the newsletter subject, sender, and email body, detects public *"View in browser"* / *"Leggi nel browser"* links (falling back to a stable Gmail `#all/<threadId>` permalink that remains valid even after archiving the email in Gmail), warns if Gmail clipped the message, and prevents saving when on the inbox list without an open email.
+   - **Gmail Newsletter Extractor (`mail.google.com`)**: Automatically detects open emails (including Gmail's *"View entire message"* `view=lg` view), extracts only the newsletter subject, sender, and email body, detects public *"View in browser"* / *"Leggi nel browser"* links (falling back to a stable Gmail `#all/<threadId>` permalink that remains valid even after archiving the email in Gmail), previews the **auto-detected newsletter series folder** (e.g., `📁 Auto: EUobserver morning` or `✨ Nuova cartella: EUobserver morning`, editable inline before saving), warns if Gmail clipped the message, and prevents saving when on the inbox list without an open email.
 
-6. **Dedicated Newsletter Archiving & Distraction-Free Reader**:
-   - **Dedicated Newsletters View**: Browse all active newsletters in their own **Newsletters** section in the sidebar (with indigo **Newsletter** badges and mail icons on cards and inside the Reader), while still organizing them freely with any Folders, Tags, Favorites, or Archive.
+6. **Dedicated Newsletter Archiving, Auto-Folder Clustering & Distraction-Free Reader**:
+   - **Autonomous Multi-Signal Newsletter Folder Organization (`lib/newsletterClassifier.ts`)**: When saving a newsletter for the first time (e.g., *"EUobserver morning"*), PocketBox automatically creates a dedicated newsletter folder with that series name and places all subsequent issues into it. Its multi-indicator fingerprinting engine combines **5 signals** — internal HTML masthead/banner `<img alt>`, recurring subject prefixes (`[Series]`, `Series: ...`, date-stripped series titles), sender display name decomposed from author name, sender email/domain, and `utm_campaign`/web host — plus historical rule learning (`newsletter_rules` table). It accurately distinguishes multiple different newsletters sent from the same sender address while keeping issues of the same newsletter together even when the journalist's email address or display name changes over time.
+   - **Dedicated Newsletter Sub-Folders & Quick Series Bar**: Newsletter folders live in their own collapsible sub-section under **Newsletters** in the sidebar (separate from general web article folders) with inline renaming and issue counts, plus a 1-tap horizontal series filter bar at the top of the **Newsletters** view.
    - **Custom Newsletter HTML Cleaner (`extractNewsletter`)**: Unwraps nested email layout `<table>` wrappers (preserving real data tables), strips 1×1 tracking pixels, hidden preheaders, and hardcoded inline colors/widths, unwraps Google redirect links and Gmail proxy image URLs, and selects a clean hero image while skipping social icons and logos.
    - **Built-in Readability Engine (`@mozilla/readability` + JSDOM)** for web articles: Strips ads, tracking scripts, cookie prompts, and clutter.
    - Clean typography for both articles and newsletters with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
@@ -188,8 +189,9 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 | `GET` | `/api/auth/status` | Diagnostic healthcheck (checks DB connection, folders count, and auth status) |
 | `POST` | `/api/auth/login` | Authenticate and issue 1-year HttpOnly session cookie |
 | `POST` | `/api/auth/logout` | Clear session cookie |
-| `GET` / `POST` | `/api/folders` | List or create folders |
-| `DELETE` | `/api/folders/[id]` | Delete folder |
+| `GET` / `POST` | `/api/folders` | List or create folders (`?type=article\|newsletter`, `folder_type: 'article' \| 'newsletter'`) |
+| `PATCH` / `DELETE` | `/api/folders/[id]` | Rename, recolor, or delete folder |
+| `POST` | `/api/folders/detect-newsletter` | Multi-signal newsletter classifier (previews matched folder or suggested new series name) |
 | `GET` / `POST` | `/api/tags` | List or create tags |
 | `DELETE` | `/api/tags/[id]` | Delete tag |
 
@@ -210,6 +212,7 @@ pocketbox/
 │   ├── db.ts                 # Dual-mode DB: Turso Cloud or local SQLite (@libsql/client)
 │   ├── auth.ts               # Resilient password, PIN & token verification
 │   ├── extractor.ts          # Readability + dedicated Gmail/email newsletter HTML cleaner (JSDOM)
+│   ├── newsletterClassifier.ts # Multi-signal newsletter fingerprinting & auto-folder classifier
 │   ├── offlineStorage.ts     # Client-side IndexedDB caching for iOS PWA
 │   ├── cors.ts               # Permissive CORS headers
 │   └── types.ts              # TypeScript interfaces
@@ -222,11 +225,11 @@ pocketbox/
 │       ├── save/             # Streamlined iOS Shortcut save route
 │       ├── articles/         # Article CRUD & extraction endpoints
 │       ├── auth/             # Login, logout, and auth status endpoints
-│       ├── folders/          # Folder management endpoints
+│       ├── folders/          # Folder CRUD + /api/folders/detect-newsletter classifier endpoint
 │       └── tags/             # Tag management endpoints
 ├── components/
 │   ├── PullToRefresh.tsx     # Native-grade touch pull-down refresh component
-│   ├── Sidebar.tsx           # Responsive sidebar & mobile touch drawer
+│   ├── Sidebar.tsx           # Responsive sidebar with dedicated Newsletter sub-folders & inline rename
 │   ├── ArticleCard.tsx       # Article preview card with quick actions
 │   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes)
 │   ├── AddArticleModal.tsx   # Manual URL input modal
@@ -235,13 +238,13 @@ pocketbox/
 │   └── LoginView.tsx         # Password/PIN login view
 ├── public/
 │   ├── manifest.json         # Standalone PWA Manifest (with Web Share Target)
-│   ├── sw.js                 # Service Worker (pocketbox-v6) for offline fallback
+│   ├── sw.js                 # Service Worker (pocketbox-v7) for offline fallback
 │   ├── favicon.svg           # Vector favicon
 │   └── icons/                # High-res PWA & Apple touch icons
-└── firefox-extension/        # Firefox WebExtension (Manifest v3, v0.2.0)
+└── firefox-extension/        # Firefox WebExtension (Manifest v3, v0.3.0)
     ├── manifest.json         # Extension manifest
-    ├── popup.html            # 1-click toolbar action UI with newsletter badge & settings modal
-    ├── popup.js              # Tab & Gmail newsletter extraction, payload pruning & settings
+    ├── popup.html            # 1-click toolbar action UI with auto-folder preview & settings modal
+    ├── popup.js              # Tab & Gmail newsletter extraction, auto-folder preview & settings
     └── icons/                # Extension toolbar icons (16-128px)
 ```
 

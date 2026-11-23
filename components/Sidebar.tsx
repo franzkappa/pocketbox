@@ -10,23 +10,27 @@ import {
   Tag as TagIcon, 
   Plus, 
   X, 
-  Trash2, 
+  Trash2,
+  Pencil,
+  ChevronDown,
+  ChevronRight,
   Wifi, 
   WifiOff,
   RefreshCw 
 } from 'lucide-react';
-import type { Folder, Tag, ArticleFilter } from '@/lib/types';
+import type { Folder, FolderType, Tag, ArticleFilter } from '@/lib/types';
 
 interface SidebarProps {
   currentFilter: ArticleFilter;
   onSelectFilter: (filter: ArticleFilter) => void;
   selectedFolderId?: string;
-  onSelectFolder: (folderId?: string) => void;
+  onSelectFolder: (folderId?: string, folderType?: FolderType) => void;
   selectedTagId?: string;
   onSelectTag: (tagId?: string) => void;
   folders: Folder[];
   tags: Tag[];
-  onAddFolder: (name: string, color?: string) => Promise<void>;
+  onAddFolder: (name: string, color?: string, folderType?: FolderType) => Promise<void>;
+  onRenameFolder?: (id: string, newName: string) => Promise<void>;
   onDeleteFolder: (id: string) => Promise<void>;
   onAddTag: (name: string, color?: string) => Promise<void>;
   onDeleteTag: (id: string) => Promise<void>;
@@ -48,6 +52,7 @@ export function Sidebar({
   folders,
   tags,
   onAddFolder,
+  onRenameFolder,
   onDeleteFolder,
   onAddTag,
   onDeleteTag,
@@ -60,15 +65,47 @@ export function Sidebar({
 }: SidebarProps) {
   const [newFolderName, setNewFolderName] = useState('');
   const [showAddFolder, setShowAddFolder] = useState(false);
+  const [newNewsletterFolderName, setNewNewsletterFolderName] = useState('');
+  const [showAddNewsletterFolder, setShowAddNewsletterFolder] = useState(false);
+  const [newsletterFoldersExpanded, setNewsletterFoldersExpanded] = useState(true);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
   const [newTagName, setNewTagName] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
+
+  const newsletterFolders = folders.filter((f) => f.folder_type === 'newsletter');
+  const articleFolders = folders.filter((f) => f.folder_type !== 'newsletter');
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
-    await onAddFolder(newFolderName.trim());
+    await onAddFolder(newFolderName.trim(), undefined, 'article');
     setNewFolderName('');
     setShowAddFolder(false);
+  };
+
+  const handleCreateNewsletterFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNewsletterFolderName.trim()) return;
+    await onAddFolder(newNewsletterFolderName.trim(), '#6366F1', 'newsletter');
+    setNewNewsletterFolderName('');
+    setShowAddNewsletterFolder(false);
+    setNewsletterFoldersExpanded(true);
+  };
+
+  const handleStartRename = (folder: Folder, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingFolderId(folder.id);
+    setEditingFolderName(folder.name);
+  };
+
+  const handleCommitRename = async (folderId: string) => {
+    const trimmed = editingFolderName.trim();
+    setEditingFolderId(null);
+    if (!trimmed || !onRenameFolder) return;
+    const original = folders.find((f) => f.id === folderId);
+    if (original && original.name === trimmed) return;
+    await onRenameFolder(folderId, trimmed);
   };
 
   const handleCreateTag = async (e: React.FormEvent) => {
@@ -126,18 +163,143 @@ export function Sidebar({
           <span className="flex-1 text-left">Inbox</span>
         </button>
 
-        <button
-          onClick={() => {
-            onSelectFilter('newsletters');
-            onSelectFolder(undefined);
-            onSelectTag(undefined);
-            onClose();
-          }}
-          className={navItemClass(currentFilter === 'newsletters' && !selectedFolderId && !selectedTagId)}
-        >
-          <Mail className="w-4 h-4 text-indigo-400" />
-          <span className="flex-1 text-left">Newsletters</span>
-        </button>
+        <div className="space-y-1">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                onSelectFilter('newsletters');
+                onSelectFolder(undefined, 'newsletter');
+                onSelectTag(undefined);
+                onClose();
+              }}
+              className={navItemClass(currentFilter === 'newsletters' && !selectedFolderId && !selectedTagId)}
+            >
+              <Mail className="w-4 h-4 text-indigo-400" />
+              <span className="flex-1 text-left">Newsletters</span>
+              {newsletterFolders.length > 0 && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setNewsletterFoldersExpanded(!newsletterFoldersExpanded);
+                  }}
+                  className="p-0.5 rounded hover:bg-slate-700/60 text-slate-400 hover:text-white transition"
+                  title={newsletterFoldersExpanded ? 'Collapse newsletter folders' : 'Expand newsletter folders'}
+                >
+                  {newsletterFoldersExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  )}
+                </span>
+              )}
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAddNewsletterFolder(!showAddNewsletterFolder);
+                  setNewsletterFoldersExpanded(true);
+                }}
+                className="p-0.5 rounded hover:bg-slate-700/60 text-slate-400 hover:text-indigo-300 transition"
+                title="Add Newsletter Folder"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </span>
+            </button>
+          </div>
+
+          {showAddNewsletterFolder && (
+            <form onSubmit={handleCreateNewsletterFolder} className="pl-6 pr-1 pt-1 pb-1">
+              <input
+                type="text"
+                value={newNewsletterFolderName}
+                onChange={(e) => setNewNewsletterFolderName(e.target.value)}
+                placeholder="Newsletter series name..."
+                autoFocus
+                className="w-full px-2.5 py-1.5 text-base md:text-xs bg-slate-900 border border-indigo-500/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+              />
+            </form>
+          )}
+
+          {newsletterFoldersExpanded && newsletterFolders.length > 0 && (
+            <div className="pl-5 pr-1 py-0.5 space-y-0.5 border-l border-slate-800/80 ml-4">
+              {newsletterFolders.map((folder) => {
+                const isSelected = selectedFolderId === folder.id;
+                const isEditing = editingFolderId === folder.id;
+                return (
+                  <div
+                    key={folder.id}
+                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition ${
+                      isSelected
+                        ? 'bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                    onClick={() => {
+                      if (isEditing) return;
+                      onSelectFilter('newsletters');
+                      onSelectFolder(isSelected ? undefined : folder.id, 'newsletter');
+                      onClose();
+                    }}
+                  >
+                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: folder.color || '#6366F1' }}
+                      />
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editingFolderName}
+                          onChange={(e) => setEditingFolderName(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleCommitRename(folder.id);
+                            } else if (e.key === 'Escape') {
+                              setEditingFolderId(null);
+                            }
+                          }}
+                          onBlur={() => handleCommitRename(folder.id)}
+                          autoFocus
+                          className="w-full px-1.5 py-0.5 text-xs bg-slate-950 border border-indigo-500 rounded text-white focus:outline-none"
+                        />
+                      ) : (
+                        <span className="truncate">{folder.name}</span>
+                      )}
+                    </div>
+                    {!isEditing && (
+                      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 shrink-0 ml-1">
+                        {folder.article_count !== undefined && folder.article_count > 0 && (
+                          <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
+                            {folder.article_count}
+                          </span>
+                        )}
+                        {onRenameFolder && (
+                          <button
+                            onClick={(e) => handleStartRename(folder, e)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-indigo-300"
+                            title="Rename newsletter folder"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteFolder(folder.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400"
+                          title="Delete newsletter folder"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => {
@@ -166,7 +328,7 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Folders Section */}
+      {/* Article Folders Section */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
         <div>
           <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold text-slate-400 tracking-wider uppercase">
@@ -194,8 +356,9 @@ export function Sidebar({
           )}
 
           <div className="mt-1 space-y-0.5">
-            {folders.map((folder) => {
+            {articleFolders.map((folder) => {
               const isSelected = selectedFolderId === folder.id;
+              const isEditing = editingFolderId === folder.id;
               return (
                 <div
                   key={folder.id}
@@ -205,34 +368,66 @@ export function Sidebar({
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                   }`}
                   onClick={() => {
-                    onSelectFolder(isSelected ? undefined : folder.id);
+                    if (isEditing) return;
+                    onSelectFolder(isSelected ? undefined : folder.id, 'article');
                     onClose();
                   }}
                 >
-                  <div className="flex items-center gap-2.5 truncate">
+                  <div className="flex items-center gap-2.5 truncate flex-1 min-w-0">
                     <span
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: folder.color || '#3B82F6' }}
                     />
-                    <span className="truncate">{folder.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100">
-                    {folder.article_count !== undefined && folder.article_count > 0 && (
-                      <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
-                        {folder.article_count}
-                      </span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingFolderName}
+                        onChange={(e) => setEditingFolderName(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCommitRename(folder.id);
+                          } else if (e.key === 'Escape') {
+                            setEditingFolderId(null);
+                          }
+                        }}
+                        onBlur={() => handleCommitRename(folder.id)}
+                        autoFocus
+                        className="w-full px-1.5 py-0.5 text-xs bg-slate-950 border border-rose-500 rounded text-white focus:outline-none"
+                      />
+                    ) : (
+                      <span className="truncate">{folder.name}</span>
                     )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteFolder(folder.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400"
-                      title="Delete folder"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
                   </div>
+                  {!isEditing && (
+                    <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 shrink-0 ml-1">
+                      {folder.article_count !== undefined && folder.article_count > 0 && (
+                        <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
+                          {folder.article_count}
+                        </span>
+                      )}
+                      {onRenameFolder && (
+                        <button
+                          onClick={(e) => handleStartRename(folder, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:text-slate-200"
+                          title="Rename folder"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteFolder(folder.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400"
+                        title="Delete folder"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

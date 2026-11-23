@@ -28,7 +28,7 @@ import {
   updateCachedArticleOffline, 
   deleteCachedArticleOffline 
 } from '@/lib/offlineStorage';
-import type { Article, Folder, Tag, ArticleFilter } from '@/lib/types';
+import type { Article, Folder, FolderType, Tag, ArticleFilter } from '@/lib/types';
 
 export default function HomePage() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -442,11 +442,15 @@ export default function HomePage() {
   };
 
   // Folder & Tag management
-  const handleAddFolder = async (name: string, color?: string) => {
+  const handleAddFolder = async (
+    name: string,
+    color?: string,
+    folderType: FolderType = 'article'
+  ) => {
     const res = await fetch('/api/folders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify({ name, color, folder_type: folderType }),
     });
     const data = await res.json();
     if (data.success) {
@@ -454,11 +458,55 @@ export default function HomePage() {
     }
   };
 
-  const handleCreateFolderFromModal = async (name: string, color?: string): Promise<Folder> => {
+  const handleRenameFolder = async (id: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+
+    // Optimistic update
+    setFolders((prev) =>
+      prev
+        .map((f) => (f.id === id ? { ...f, name: trimmed } : f))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setArticles((prev) =>
+      prev.map((a) =>
+        a.folder_id === id && a.folder
+          ? { ...a, folder: { ...a.folder, name: trimmed } }
+          : a
+      )
+    );
+    setSelectedArticle((prev) =>
+      prev && prev.folder_id === id && prev.folder
+        ? { ...prev, folder: { ...prev.folder, name: trimmed } }
+        : prev
+    );
+
+    try {
+      const res = await fetch(`/api/folders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (res.ok) {
+        fetchMetadata();
+        fetchArticles(true);
+      } else {
+        fetchMetadata();
+      }
+    } catch {
+      fetchMetadata();
+    }
+  };
+
+  const handleCreateFolderFromModal = async (
+    name: string,
+    color?: string,
+    folderType: FolderType = 'article'
+  ): Promise<Folder> => {
     const res = await fetch('/api/folders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify({ name, color, folder_type: folderType }),
     });
     if (res.status === 401) {
       const data = await res.json();
@@ -509,10 +557,22 @@ export default function HomePage() {
 
   const activeFolder = folders.find((f) => f.id === selectedFolderId);
   const activeTag = tags.find((t) => t.id === selectedTagId);
+  const newsletterFolders = useMemo(
+    () => folders.filter((f) => f.folder_type === 'newsletter'),
+    [folders]
+  );
+  const articleFolders = useMemo(
+    () => folders.filter((f) => f.folder_type !== 'newsletter'),
+    [folders]
+  );
 
   // Active filter title
   const viewTitle = useMemo(() => {
-    if (activeFolder) return `Folder: ${activeFolder.name}`;
+    if (activeFolder) {
+      return activeFolder.folder_type === 'newsletter'
+        ? `Newsletter: ${activeFolder.name}`
+        : `Folder: ${activeFolder.name}`;
+    }
     if (activeTag) return `Tag: #${activeTag.name}`;
     if (currentFilter === 'newsletters') return 'Newsletters';
     if (currentFilter === 'favorites') return 'Favorites';
@@ -543,7 +603,12 @@ export default function HomePage() {
           setSelectedTagId(undefined);
         }}
         selectedFolderId={selectedFolderId}
-        onSelectFolder={(id) => {
+        onSelectFolder={(id, folderType) => {
+          if (folderType === 'newsletter') {
+            setCurrentFilter('newsletters');
+          } else if (folderType === 'article' && currentFilter === 'newsletters') {
+            setCurrentFilter('inbox');
+          }
           setSelectedFolderId(id);
           setSelectedTagId(undefined);
         }}
@@ -554,6 +619,7 @@ export default function HomePage() {
         folders={folders}
         tags={tags}
         onAddFolder={handleAddFolder}
+        onRenameFolder={handleRenameFolder}
         onDeleteFolder={handleDeleteFolder}
         onAddTag={handleAddTag}
         onDeleteTag={handleDeleteTag}
@@ -640,13 +706,59 @@ export default function HomePage() {
           </div>
         </header>
 
+        {/* Newsletter Series Quick Filter Bar */}
+        {currentFilter === 'newsletters' && newsletterFolders.length > 0 && (
+          <div className="px-3 sm:px-4 md:px-6 py-2 bg-slate-900/60 border-b border-slate-800/80 flex items-center gap-1.5 sm:gap-2 text-xs overflow-x-auto no-scrollbar whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => setSelectedFolderId(undefined)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition shrink-0 touch-manipulation ${
+                !selectedFolderId
+                  ? 'bg-indigo-500 text-white shadow-sm'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              <Mail className="w-3 h-3" />
+              <span>All Newsletters</span>
+            </button>
+            {newsletterFolders.map((folder) => {
+              const isSelected = selectedFolderId === folder.id;
+              return (
+                <button
+                  type="button"
+                  key={folder.id}
+                  onClick={() =>
+                    setSelectedFolderId(isSelected ? undefined : folder.id)
+                  }
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition shrink-0 touch-manipulation ${
+                    isSelected
+                      ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/50 shadow-sm'
+                      : 'bg-slate-800/70 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: folder.color || '#6366F1' }}
+                  />
+                  <span>{folder.name}</span>
+                  {folder.article_count !== undefined && folder.article_count > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-900/80 text-slate-300">
+                      {folder.article_count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Active Filter Pills (Horizontal scrollable on small screens) */}
         {(selectedFolderId || selectedTagId || searchQuery) && (
           <div className="px-3 sm:px-4 md:px-6 py-2 bg-slate-900/40 border-b border-slate-800/60 flex items-center gap-1.5 sm:gap-2 text-xs overflow-x-auto no-scrollbar whitespace-nowrap">
             <span className="text-slate-400 shrink-0">Filtered:</span>
             {activeFolder && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 font-medium shrink-0">
-                Folder: {activeFolder.name}
+                {activeFolder.folder_type === 'newsletter' ? 'Newsletter' : 'Folder'}: {activeFolder.name}
                 <button onClick={() => setSelectedFolderId(undefined)} className="hover:text-white p-0.5">
                   <X className="w-3 h-3" />
                 </button>
@@ -785,7 +897,7 @@ export default function HomePage() {
       <AddArticleModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        folders={folders}
+        folders={articleFolders}
         tags={tags}
         onSave={handleSaveArticle}
       />

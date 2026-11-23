@@ -1,9 +1,61 @@
+export type FolderType = 'article' | 'newsletter';
+
 export interface Folder {
   id: string;
   name: string;
   color: string;
+  folder_type?: FolderType;
   created_at: string;
   article_count?: number;
+}
+
+export interface NewsletterRule {
+  id: string;
+  folder_id: string;
+  sender_email?: string | null;
+  sender_domain?: string | null;
+  sender_name?: string | null;
+  subject_prefix?: string | null;
+  masthead?: string | null;
+  utm_campaign?: string | null;
+  web_host?: string | null;
+  updated_at: string;
+}
+
+export interface NewsletterSignalsInput {
+  title?: string | null;
+  siteName?: string | null;
+  byline?: string | null;
+  senderEmail?: string | null;
+  senderName?: string | null;
+  url?: string | null;
+  html?: string | null;
+}
+
+export interface ExtractedNewsletterSignals {
+  senderEmail: string | null;
+  senderLocal: string | null;
+  senderDomain: string | null;
+  isSharedPlatformDomain: boolean;
+  rawSenderName: string | null;
+  senderPublicationName: string | null;
+  senderAuthorName: string | null;
+  subjectPrefix: string | null;
+  subjectSeriesName: string | null;
+  masthead: string | null;
+  logoAlt: string | null;
+  footerSeries: string | null;
+  utmCampaign: string | null;
+  webHost: string | null;
+}
+
+export interface NewsletterClassificationResult {
+  matchedFolder: Folder | null;
+  suggestedFolderName: string;
+  suggestedColor: string;
+  isNewFolder: boolean;
+  confidence: number;
+  signals: ExtractedNewsletterSignals;
 }
 
 export interface Tag {

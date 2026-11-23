@@ -77,9 +77,13 @@ export async function POST(request: NextRequest) {
     let title: string | undefined = undefined;
     let site_name: string | undefined = undefined;
     let byline: string | undefined = undefined;
+    let sender_email: string | undefined = undefined;
+    let sender_name: string | undefined = undefined;
     let excerpt: string | undefined = undefined;
     let source_type: ArticleSourceType = 'article';
     let folder_id: string | null = null;
+    let folder_name: string | undefined = undefined;
+    let auto_folder = true;
     let tags: string[] = [];
 
     try {
@@ -90,9 +94,13 @@ export async function POST(request: NextRequest) {
         title = rawBody.title;
         site_name = typeof rawBody.site_name === 'string' ? rawBody.site_name : undefined;
         byline = typeof rawBody.byline === 'string' ? rawBody.byline : undefined;
+        sender_email = typeof rawBody.sender_email === 'string' ? rawBody.sender_email : undefined;
+        sender_name = typeof rawBody.sender_name === 'string' ? rawBody.sender_name : undefined;
         excerpt = typeof rawBody.excerpt === 'string' ? rawBody.excerpt : undefined;
         source_type = rawBody.source_type === 'newsletter' ? 'newsletter' : 'article';
         folder_id = rawBody.folder_id || null;
+        folder_name = typeof rawBody.folder_name === 'string' ? rawBody.folder_name : undefined;
+        if (rawBody.auto_folder === false) auto_folder = false;
         tags = Array.isArray(rawBody.tags) ? rawBody.tags : [];
       } else if (typeof rawBody === 'string') {
         urlParam = rawBody;
@@ -111,6 +119,30 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Valid URL is required' },
         { status: 400, headers: corsHeaders() }
       );
+    }
+
+    // Resolve automatic or confirmed newsletter folder when source_type is 'newsletter'
+    let resolvedNewsletterFolder = null;
+    if (source_type === 'newsletter') {
+      resolvedNewsletterFolder = await db.resolveAutoNewsletterFolder(
+        {
+          title,
+          siteName: site_name,
+          byline,
+          senderEmail: sender_email,
+          senderName: sender_name,
+          url: cleanUrl,
+          html,
+        },
+        {
+          explicitFolderId: folder_id,
+          explicitFolderName: folder_name,
+          disableAuto: !auto_folder,
+        }
+      );
+      if (resolvedNewsletterFolder) {
+        folder_id = resolvedNewsletterFolder.id;
+      }
     }
 
     // Check if article already exists
@@ -163,7 +195,12 @@ export async function POST(request: NextRequest) {
 
       const updated = Object.keys(updates).length > 0 ? await db.updateArticle(existing.id, updates) : existing;
       return NextResponse.json(
-        { success: true, article: updated, alreadyExists: true },
+        {
+          success: true,
+          article: updated,
+          autoFolder: resolvedNewsletterFolder,
+          alreadyExists: true,
+        },
         { headers: corsHeaders() }
       );
     }
@@ -197,7 +234,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { success: true, article },
+      { success: true, article, autoFolder: resolvedNewsletterFolder },
       { status: 201, headers: corsHeaders() }
     );
   } catch (error: any) {

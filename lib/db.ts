@@ -1,7 +1,23 @@
 import { createClient, type Client } from '@libsql/client';
 import path from 'node:path';
 import fs from 'node:fs';
-import type { Article, ArticleSourceType, Folder, Tag, ArticleQueryOptions } from './types';
+import type {
+  Article,
+  ArticleSourceType,
+  ExtractedNewsletterSignals,
+  Folder,
+  FolderType,
+  NewsletterClassificationResult,
+  NewsletterRule,
+  NewsletterSignalsInput,
+  Tag,
+  ArticleQueryOptions,
+} from './types';
+import {
+  classifyNewsletterAgainstFolders,
+  extractNewsletterSignals,
+  pickNewsletterColor,
+} from './newsletterClassifier';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'pocketbox.db');
@@ -40,7 +56,21 @@ async function ensureSchema(client: Client): Promise<void> {
       id TEXT PRIMARY KEY,
       name TEXT UNIQUE NOT NULL,
       color TEXT NOT NULL DEFAULT '#6366F1',
+      folder_type TEXT NOT NULL DEFAULT 'article',
       created_at TEXT NOT NULL
+    );`,
+    `CREATE TABLE IF NOT EXISTS newsletter_rules (
+      id TEXT PRIMARY KEY,
+      folder_id TEXT NOT NULL,
+      sender_email TEXT,
+      sender_domain TEXT,
+      sender_name TEXT,
+      subject_prefix TEXT,
+      masthead TEXT,
+      utm_campaign TEXT,
+      web_host TEXT,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
     );`,
     `CREATE TABLE IF NOT EXISTS tags (
       id TEXT PRIMARY KEY,
@@ -77,9 +107,10 @@ async function ensureSchema(client: Client): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(is_archived, is_favorite, is_read);`,
     `CREATE INDEX IF NOT EXISTS idx_articles_folder ON articles(folder_id);`,
     `CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);`,
+    `CREATE INDEX IF NOT EXISTS idx_newsletter_rules_folder ON newsletter_rules(folder_id);`,
   ], 'write');
 
-  // Idempotent migration for existing databases: ensure source_type column exists
+  // Idempotent migrations for existing databases: ensure source_type on articles and folder_type on folders exist
   try {
     const tableInfo = await client.execute('PRAGMA table_info(articles)');
     const hasSourceType = tableInfo.rows.some(
@@ -95,6 +126,20 @@ async function ensureSchema(client: Client): Promise<void> {
     );
   } catch (migErr) {
     console.warn('[DB] source_type migration notice:', migErr);
+  }
+
+  try {
+    const folderTableInfo = await client.execute('PRAGMA table_info(folders)');
+    const hasFolderType = folderTableInfo.rows.some(
+      (col) => String(col.name).toLowerCase() === 'folder_type'
+    );
+    if (!hasFolderType) {
+      await client.execute(
+        "ALTER TABLE folders ADD COLUMN folder_type TEXT NOT NULL DEFAULT 'article'"
+      );
+    }
+  } catch (folderMigErr) {
+    console.warn('[DB] folder_type migration notice:', folderMigErr);
   }
 
   try {
@@ -120,20 +165,27 @@ async function ensureSchema(client: Client): Promise<void> {
 }
 
 export const db = {
-  async getFolders(): Promise<Folder[]> {
+  async getFolders(folderType?: FolderType): Promise<Folder[]> {
     const client = getClient();
     await ensureSchema(client);
-    const rs = await client.execute(`
-      SELECT f.*, COUNT(a.id) as article_count
-      FROM folders f
-      LEFT JOIN articles a ON a.folder_id = f.id AND a.is_archived = 0
-      GROUP BY f.id
-      ORDER BY f.name ASC
-    `);
+    const whereClause = folderType ? 'WHERE f.folder_type = ?' : '';
+    const args = folderType ? [folderType] : [];
+    const rs = await client.execute({
+      sql: `
+        SELECT f.*, COUNT(a.id) as article_count
+        FROM folders f
+        LEFT JOIN articles a ON a.folder_id = f.id AND a.is_archived = 0
+        ${whereClause}
+        GROUP BY f.id
+        ORDER BY f.name ASC
+      `,
+      args,
+    });
     return rs.rows.map(row => ({
       id: String(row.id),
       name: String(row.name),
       color: String(row.color || '#6366F1'),
+      folder_type: (row.folder_type === 'newsletter' ? 'newsletter' : 'article') as FolderType,
       created_at: String(row.created_at || ''),
       article_count: Number(row.article_count || 0),
     }));
@@ -152,33 +204,329 @@ export const db = {
       id: String(row.id),
       name: String(row.name),
       color: String(row.color || '#6366F1'),
+      folder_type: (row.folder_type === 'newsletter' ? 'newsletter' : 'article') as FolderType,
       created_at: String(row.created_at || ''),
     };
   },
 
-  async createFolder(name: string, color: string = '#6366F1'): Promise<Folder> {
+  async getFolderByName(name: string): Promise<Folder | null> {
+    const client = getClient();
+    await ensureSchema(client);
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const rs = await client.execute({
+      sql: 'SELECT * FROM folders WHERE LOWER(name) = LOWER(?) LIMIT 1',
+      args: [trimmed],
+    });
+    if (rs.rows.length === 0) return null;
+    const row = rs.rows[0];
+    return {
+      id: String(row.id),
+      name: String(row.name),
+      color: String(row.color || '#6366F1'),
+      folder_type: (row.folder_type === 'newsletter' ? 'newsletter' : 'article') as FolderType,
+      created_at: String(row.created_at || ''),
+    };
+  },
+
+  async createFolder(
+    name: string,
+    color: string = '#6366F1',
+    folderType: FolderType = 'article'
+  ): Promise<Folder> {
     const client = getClient();
     await ensureSchema(client);
     const trimmed = name.trim();
     if (!trimmed) {
       throw new Error('Folder name is required');
     }
+    const normalizedType: FolderType = folderType === 'newsletter' ? 'newsletter' : 'article';
     const id = 'f-' + Math.random().toString(36).substring(2, 9);
     const created_at = new Date().toISOString();
     await client.execute({
-      sql: 'INSERT INTO folders (id, name, color, created_at) VALUES (?, ?, ?, ?)',
-      args: [id, trimmed, color, created_at],
+      sql: 'INSERT INTO folders (id, name, color, folder_type, created_at) VALUES (?, ?, ?, ?, ?)',
+      args: [id, trimmed, color, normalizedType, created_at],
     });
-    return { id, name: trimmed, color, created_at, article_count: 0 };
+    return {
+      id,
+      name: trimmed,
+      color,
+      folder_type: normalizedType,
+      created_at,
+      article_count: 0,
+    };
+  },
+
+  async updateFolder(
+    id: string,
+    updates: Partial<{ name: string; color: string; folder_type: FolderType }>
+  ): Promise<Folder | null> {
+    const client = getClient();
+    await ensureSchema(client);
+    const fields: string[] = [];
+    const args: (string | number | null)[] = [];
+
+    if (updates.name !== undefined) {
+      const trimmed = updates.name.trim();
+      if (!trimmed) throw new Error('Folder name is required');
+      fields.push('name = ?');
+      args.push(trimmed);
+    }
+    if (updates.color !== undefined) {
+      fields.push('color = ?');
+      args.push(updates.color);
+    }
+    if (updates.folder_type !== undefined) {
+      fields.push('folder_type = ?');
+      args.push(updates.folder_type === 'newsletter' ? 'newsletter' : 'article');
+    }
+
+    if (fields.length > 0) {
+      args.push(id);
+      await client.execute({
+        sql: `UPDATE folders SET ${fields.join(', ')} WHERE id = ?`,
+        args,
+      });
+    }
+
+    return this.getFolderById(id);
+  },
+
+  async findOrCreateNewsletterFolder(name: string, color?: string): Promise<Folder> {
+    const client = getClient();
+    await ensureSchema(client);
+    const trimmed = name.trim() || 'Newsletter';
+    const chosenColor = color || pickNewsletterColor(trimmed);
+
+    const existing = await this.getFolderByName(trimmed);
+    if (existing) {
+      if (existing.folder_type === 'newsletter') {
+        return existing;
+      }
+      // If it's a custom folder (not one of the 4 seeded default article folders), promote it to newsletter
+      const SEEDED_IDS = new Set(['f-tech', 'f-work', 'f-long', 'f-pers']);
+      if (!SEEDED_IDS.has(existing.id)) {
+        const promoted = await this.updateFolder(existing.id, { folder_type: 'newsletter' });
+        return promoted || existing;
+      }
+      // If it collided with a seeded default folder name (e.g. "Technology"), disambiguate
+      const disambiguatedName = `${trimmed} (Newsletter)`;
+      const existingDisambiguated = await this.getFolderByName(disambiguatedName);
+      if (existingDisambiguated) return existingDisambiguated;
+      return this.createFolder(disambiguatedName, chosenColor, 'newsletter');
+    }
+
+    return this.createFolder(trimmed, chosenColor, 'newsletter');
+  },
+
+  async getNewsletterRules(): Promise<NewsletterRule[]> {
+    const client = getClient();
+    await ensureSchema(client);
+    const rs = await client.execute(`
+      SELECT r.*
+      FROM newsletter_rules r
+      JOIN folders f ON f.id = r.folder_id
+      ORDER BY r.updated_at DESC
+    `);
+    return rs.rows.map((row) => ({
+      id: String(row.id),
+      folder_id: String(row.folder_id),
+      sender_email: row.sender_email ? String(row.sender_email) : null,
+      sender_domain: row.sender_domain ? String(row.sender_domain) : null,
+      sender_name: row.sender_name ? String(row.sender_name) : null,
+      subject_prefix: row.subject_prefix ? String(row.subject_prefix) : null,
+      masthead: row.masthead ? String(row.masthead) : null,
+      utm_campaign: row.utm_campaign ? String(row.utm_campaign) : null,
+      web_host: row.web_host ? String(row.web_host) : null,
+      updated_at: String(row.updated_at || ''),
+    }));
+  },
+
+  async recordNewsletterRule(
+    folderId: string,
+    signals: ExtractedNewsletterSignals
+  ): Promise<void> {
+    const client = getClient();
+    await ensureSchema(client);
+
+    const senderEmail = signals.senderEmail || null;
+    const senderDomain = signals.senderDomain || null;
+    const senderName = signals.senderPublicationName || null;
+    const subjectPrefix = signals.subjectPrefix || signals.subjectSeriesName || null;
+    const masthead = signals.masthead || signals.logoAlt || signals.footerSeries || null;
+    const utmCampaign = signals.utmCampaign || null;
+    const webHost = signals.webHost || null;
+
+    if (
+      !senderEmail &&
+      !senderDomain &&
+      !senderName &&
+      !subjectPrefix &&
+      !masthead &&
+      !utmCampaign &&
+      !webHost
+    ) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    // Check if an equivalent rule already exists for this folder
+    const existingRs = await client.execute({
+      sql: `
+        SELECT id FROM newsletter_rules
+        WHERE folder_id = ?
+          AND COALESCE(sender_email, '') = ?
+          AND COALESCE(sender_name, '') = ?
+          AND COALESCE(subject_prefix, '') = ?
+          AND COALESCE(masthead, '') = ?
+        LIMIT 1
+      `,
+      args: [
+        folderId,
+        senderEmail || '',
+        senderName || '',
+        subjectPrefix || '',
+        masthead || '',
+      ],
+    });
+
+    if (existingRs.rows.length > 0) {
+      await client.execute({
+        sql: `
+          UPDATE newsletter_rules
+          SET sender_domain = COALESCE(?, sender_domain),
+              utm_campaign = COALESCE(?, utm_campaign),
+              web_host = COALESCE(?, web_host),
+              updated_at = ?
+          WHERE id = ?
+        `,
+        args: [
+          senderDomain,
+          utmCampaign,
+          webHost,
+          now,
+          String(existingRs.rows[0].id),
+        ],
+      });
+      return;
+    }
+
+    const id = 'nr-' + Math.random().toString(36).substring(2, 10);
+    await client.execute({
+      sql: `
+        INSERT INTO newsletter_rules (
+          id, folder_id, sender_email, sender_domain, sender_name,
+          subject_prefix, masthead, utm_campaign, web_host, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        id,
+        folderId,
+        senderEmail,
+        senderDomain,
+        senderName,
+        subjectPrefix,
+        masthead,
+        utmCampaign,
+        webHost,
+        now,
+      ],
+    });
+  },
+
+  async classifyNewsletter(
+    input: NewsletterSignalsInput
+  ): Promise<NewsletterClassificationResult> {
+    const client = getClient();
+    await ensureSchema(client);
+    const [newsletterFolders, rules] = await Promise.all([
+      this.getFolders('newsletter'),
+      this.getNewsletterRules(),
+    ]);
+    return classifyNewsletterAgainstFolders(input, newsletterFolders, rules);
+  },
+
+  async resolveAutoNewsletterFolder(
+    input: NewsletterSignalsInput,
+    options?: {
+      explicitFolderId?: string | null;
+      explicitFolderName?: string | null;
+      disableAuto?: boolean;
+    }
+  ): Promise<Folder | null> {
+    const client = getClient();
+    await ensureSchema(client);
+
+    if (options?.disableAuto) {
+      return null;
+    }
+
+    const signals = extractNewsletterSignals(input);
+
+    // 1. User explicitly chose an existing folder ID
+    if (options?.explicitFolderId) {
+      const folder = await this.getFolderById(options.explicitFolderId);
+      if (folder) {
+        const SEEDED_IDS = new Set(['f-tech', 'f-work', 'f-long', 'f-pers']);
+        if (folder.folder_type !== 'newsletter' && !SEEDED_IDS.has(folder.id)) {
+          await this.updateFolder(folder.id, { folder_type: 'newsletter' });
+        }
+        await this.recordNewsletterRule(folder.id, signals);
+        return folder;
+      }
+    }
+
+    // 2. User confirmed or customized a new newsletter folder name in the popup
+    if (options?.explicitFolderName && options.explicitFolderName.trim()) {
+      const folder = await this.findOrCreateNewsletterFolder(options.explicitFolderName.trim());
+      await this.recordNewsletterRule(folder.id, signals);
+      return folder;
+    }
+
+    // 3. Automatic multi-indicator classification & folder creation
+    const classification = await this.classifyNewsletter(input);
+    const targetFolder =
+      classification.matchedFolder ||
+      (await this.findOrCreateNewsletterFolder(
+        classification.suggestedFolderName,
+        classification.suggestedColor
+      ));
+
+    await this.recordNewsletterRule(targetFolder.id, classification.signals);
+    return targetFolder;
+  },
+
+  async learnNewsletterFolderFromArticle(
+    article: Article,
+    targetFolderId: string | null
+  ): Promise<void> {
+    if (!targetFolderId || article.source_type !== 'newsletter') return;
+    const folder = await this.getFolderById(targetFolderId);
+    if (!folder) return;
+
+    const SEEDED_IDS = new Set(['f-tech', 'f-work', 'f-long', 'f-pers']);
+    if (folder.folder_type !== 'newsletter' && !SEEDED_IDS.has(folder.id)) {
+      await this.updateFolder(folder.id, { folder_type: 'newsletter' });
+    }
+
+    const signals = extractNewsletterSignals({
+      title: article.title,
+      siteName: article.site_name,
+      byline: article.byline,
+      url: article.url,
+      html: article.content_html,
+    });
+    await this.recordNewsletterRule(folder.id, signals);
   },
 
   async deleteFolder(id: string): Promise<void> {
     const client = getClient();
     await ensureSchema(client);
-    await client.execute({
-      sql: 'DELETE FROM folders WHERE id = ?',
-      args: [id],
-    });
+    await client.batch([
+      { sql: 'DELETE FROM newsletter_rules WHERE folder_id = ?', args: [id] },
+      { sql: 'DELETE FROM folders WHERE id = ?', args: [id] },
+    ], 'write');
   },
 
   async getTags(): Promise<Tag[]> {
@@ -258,7 +606,7 @@ export const db = {
         a.id, a.url, a.title, a.byline, a.excerpt, a.content_html, a.text_content, a.site_name,
         a.lead_image_url, a.reading_time_minutes, a.source_type, a.folder_id,
         a.is_read, a.is_favorite, a.is_archived, a.created_at, a.updated_at,
-        f.name as folder_name, f.color as folder_color
+        f.name as folder_name, f.color as folder_color, f.folder_type as folder_type
       FROM articles a
       LEFT JOIN folders f ON f.id = a.folder_id
       ${whereClause}
@@ -295,7 +643,13 @@ export const db = {
 
     return rs.rows.map(row => {
       const folder = row.folder_id && row.folder_name
-        ? { id: String(row.folder_id), name: String(row.folder_name), color: String(row.folder_color || '#6366F1'), created_at: '' }
+        ? {
+            id: String(row.folder_id),
+            name: String(row.folder_name),
+            color: String(row.folder_color || '#6366F1'),
+            folder_type: (row.folder_type === 'newsletter' ? 'newsletter' : 'article') as FolderType,
+            created_at: '',
+          }
         : null;
 
       return {
@@ -329,7 +683,7 @@ export const db = {
       sql: `
         SELECT 
           a.*,
-          f.name as folder_name, f.color as folder_color
+          f.name as folder_name, f.color as folder_color, f.folder_type as folder_type
         FROM articles a
         LEFT JOIN folders f ON f.id = a.folder_id
         WHERE a.id = ?
@@ -341,7 +695,13 @@ export const db = {
     const row = rs.rows[0];
 
     const folder = row.folder_id && row.folder_name
-      ? { id: String(row.folder_id), name: String(row.folder_name), color: String(row.folder_color || '#6366F1'), created_at: '' }
+      ? {
+          id: String(row.folder_id),
+          name: String(row.folder_name),
+          color: String(row.folder_color || '#6366F1'),
+          folder_type: (row.folder_type === 'newsletter' ? 'newsletter' : 'article') as FolderType,
+          created_at: '',
+        }
       : null;
 
     const tagRs = await client.execute({

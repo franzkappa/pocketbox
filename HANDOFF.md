@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations, Post-Save Tag & Folder Management, Gmail Newsletter Archiving & Dedicated Newsletters View)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v6`), the Firefox WebExtension (`v0.2.0` with targeted Gmail newsletter extraction), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, and dedicated newsletter archiving/reading are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations, Post-Save Tag & Folder Management, Gmail Newsletter Archiving, Dedicated Newsletters View & Autonomous Multi-Signal Newsletter Folder Organization)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v7`), the Firefox WebExtension (`v0.3.0` with targeted Gmail newsletter extraction and real-time auto-folder preview), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, dedicated newsletter archiving/reading, and autonomous multi-signal newsletter folder clustering are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -19,10 +19,10 @@
   - **Styling**: Tailwind CSS + Lucide Icons
   - **Database Engine**: Hybrid `@libsql/client` (Turso Cloud SQLite via `libsql://` in production; local `./data/pocketbox.db` as development fallback)
   - **Cloud Hosting**: Vercel Serverless (24/7 always-on, zero cold spin-down for UI, automatic SSL)
-  - **Article & Newsletter Parser**: `@mozilla/readability` + custom `extractNewsletter` HTML cleaner (`jsdom`)
-  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v6`) + IndexedDB (`lib/offlineStorage.ts`)
+  - **Article & Newsletter Parser**: `@mozilla/readability` + custom `extractNewsletter` HTML cleaner (`jsdom`) + multi-signal newsletter series classifier (`lib/newsletterClassifier.ts`)
+  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v7`) + IndexedDB (`lib/offlineStorage.ts`)
   - **iOS Ingestion**: Native iOS Shortcut via Apple Share Sheet calling `/api/save`
-  - **Browser Extension**: Firefox WebExtension (Manifest V3, `v0.2.0`, `firefox-extension/` with configurable Cloud URL, API Key, and targeted Gmail newsletter extractor)
+  - **Browser Extension**: Firefox WebExtension (Manifest V3, `v0.3.0`, `firefox-extension/` with configurable Cloud URL, API Key, targeted Gmail newsletter extractor, and automatic newsletter folder detection preview)
 
 ---
 
@@ -104,7 +104,22 @@ CREATE TABLE IF NOT EXISTS folders (
   id TEXT PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
   color TEXT NOT NULL DEFAULT '#6366F1',
+  folder_type TEXT NOT NULL DEFAULT 'article',
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS newsletter_rules (
+  id TEXT PRIMARY KEY,
+  folder_id TEXT NOT NULL,
+  sender_email TEXT,
+  sender_domain TEXT,
+  sender_name TEXT,
+  subject_prefix TEXT,
+  masthead TEXT,
+  utm_campaign TEXT,
+  web_host TEXT,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -146,11 +161,12 @@ CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(is_archived, is_favor
 CREATE INDEX IF NOT EXISTS idx_articles_folder ON articles(folder_id);
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_source_type ON articles(source_type, is_archived);
+CREATE INDEX IF NOT EXISTS idx_newsletter_rules_folder ON newsletter_rules(folder_id);
 ```
 
-*(Note: `ensureSchema` runs an idempotent `PRAGMA table_info(articles)` check and automatically executes `ALTER TABLE articles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'article'` on existing SQLite/Turso databases.)*
+*(Note: `ensureSchema` runs idempotent `PRAGMA table_info(articles)` and `PRAGMA table_info(folders)` checks and automatically executes `ALTER TABLE articles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'article'` and `ALTER TABLE folders ADD COLUMN folder_type TEXT NOT NULL DEFAULT 'article'` on existing SQLite/Turso databases.)*
 
-Default seeded folders: `Technology`, `Work`, `Long Reads`, `Personal`.  
+Default seeded folders (`folder_type = 'article'`): `Technology`, `Work`, `Long Reads`, `Personal`.  
 Default seeded tags: `must-read`, `quick`, `reference`.
 
 ---
@@ -163,15 +179,16 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 |---|---|---|
 | `GET` / `POST` | `/api/save` | High-speed ingestion for iOS Shortcuts & bookmarklets. Sanitizes nested iOS variable objects and query params (`?url=...&key=...` or JSON `{ "URL": "..." }`) |
 | `GET` | `/api/articles` | List articles & newsletters with filters (`?filter=inbox\|newsletters\|archive\|favorites&folder_id=...&tag_id=...&q=...`) |
-| `POST` | `/api/articles` | Ingest article or newsletter (`source_type: 'article' \| 'newsletter'`, optional `site_name`, `byline`) from URL or client-rendered HTML |
+| `POST` | `/api/articles` | Ingest article or newsletter (`source_type: 'article' \| 'newsletter'`, optional `site_name`, `byline`, `sender_email`, `sender_name`, `folder_name`, `auto_folder`) with automatic newsletter folder resolution |
 | `GET` | `/api/articles/[id]` | Get single article with full HTML |
-| `PATCH` | `/api/articles/[id]` | Update article state (`is_read`, `is_favorite`, `is_archived`, `folder_id`, `tags`) |
+| `PATCH` | `/api/articles/[id]` | Update article state (`is_read`, `is_favorite`, `is_archived`, `folder_id`, `tags`; moving a newsletter automatically updates learned `newsletter_rules`) |
 | `DELETE` | `/api/articles/[id]` | Delete article permanently |
 | `GET` | `/api/auth/status` | Diagnostic healthcheck (returns database type, status, folders count, auth status) |
 | `POST` | `/api/auth/login` | Authenticate with password/PIN, sets 1-year HttpOnly session cookie |
 | `POST` | `/api/auth/logout` | Clears session cookie |
-| `GET` / `POST` | `/api/folders` | List or create folders |
-| `DELETE` | `/api/folders/[id]` | Delete folder |
+| `GET` / `POST` | `/api/folders` | List or create folders (`?type=article\|newsletter`, `folder_type: 'article' \| 'newsletter'`) |
+| `PATCH` / `DELETE` | `/api/folders/[id]` | Rename, recolor, or delete folder |
+| `POST` | `/api/folders/detect-newsletter` | Multi-signal newsletter classifier endpoint (returns `matchedFolder` or `suggestedFolderName` + extracted signals) |
 | `GET` / `POST` | `/api/tags` | List or create tags |
 | `DELETE` | `/api/tags/[id]` | Delete tag |
 
@@ -222,7 +239,12 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
    - **Root Cause Fixed**: Previously, clicking the Firefox extension on Gmail serialized the entire Gmail web app DOM (`document.documentElement.outerHTML`, often 5–15 MB), exceeding Vercel's 4.5 MB Serverless Function request body limit. Vercel's edge gateway rejected it with `413 Payload Too Large` without Next.js CORS headers, surfacing in Firefox `fetch()` as `Save failed: NetworkError when attempting to fetch resource.`.
    - **Targeted Gmail DOM Extraction ([`firefox-extension/popup.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/firefox-extension/popup.js), [`firefox-extension/popup.html`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/firefox-extension/popup.html), `v0.2.0`)**: Detects `mail.google.com` tabs on popup open and injects `extractGmailNewsletterInPage` to extract *only* the open email body (`.a3s.aiL` / `.a3s` last visible expanded message, or Gmail's standalone `view=lg` / `view=pt` full-message view), clean subject (`h2.hP`), and sender (`span.gD[email]`). Automatically detects public *"View in browser"* / *"Leggi nel browser"* links (EN/IT/FR/ES/DE plus Substack/Beehiiv/Ghost heading links matching subject) with Google redirect unwrapping and falls back to a canonical `https://mail.google.com/mail/u/<N>/#all/<threadId>` permalink so links remain valid after archiving in Gmail. Shows a clipped-message warning when `.iX` / `view=lg` is detected and disables saving when no email is open. Also applies lightweight DOM pruning (`extractCleanPageHtmlInPage`) with a 3.2 MB guard on regular web pages.
    - **Dedicated Newsletter Cleaner ([`lib/extractor.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/extractor.ts) `extractNewsletter`, [`app/api/articles/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/route.ts))**: Because email newsletters rely on deeply nested `<table>` layouts that `@mozilla/readability` mangles or discards, `source_type: 'newsletter'` runs a dedicated JSDOM cleaner that unwraps layout tables (preserving real data tables), strips 1×1 tracking pixels, hidden preheaders, inline styles/colors/widths (maintaining full compatibility with all 4 Reader themes), unwraps `www.google.com/url?q=` redirects and `ci*.googleusercontent.com/(meips|proxy)/...#https://...` proxy images, selects a clean hero image, and generates boilerplate-free excerpts.
-   - **Database, Offline Cache & UI**: Added `source_type` (`'article' | 'newsletter'`) with idempotent `PRAGMA table_info(articles)` migration in [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts), offline `newsletters` filtering in [`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts), Service Worker bump to `pocketbox-v6` in [`public/sw.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/public/sw.js), dedicated **Newsletters** nav item in [`components/Sidebar.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/Sidebar.tsx), indigo **Newsletter** badges and mail icons in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (with `From ...` attribution and smart external link tooltip), and responsive table/divider styling in [`app/globals.css`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/globals.css).
+   - **Database, Offline Cache & UI**: Added `source_type` (`'article' | 'newsletter'`) with idempotent `PRAGMA table_info(articles)` migration in [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts), offline `newsletters` filtering in [`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts), Service Worker bump to `pocketbox-v7` in [`public/sw.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/public/sw.js), dedicated **Newsletters** nav item in [`components/Sidebar.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/Sidebar.tsx), indigo **Newsletter** badges and mail icons in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (with `From ...` attribution and smart external link tooltip), and responsive table/divider styling in [`app/globals.css`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/globals.css).
+12. **Autonomous Multi-Signal Newsletter Folder Organization**:
+   - **Multi-Indicator Fingerprinting Engine ([`lib/newsletterClassifier.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/newsletterClassifier.ts))**: Combines 5 independent signals to identify a newsletter series: (1) HTML masthead heading, top banner `<img alt>`, and footer subscription boilerplate (*"You are receiving X because..."* / *"Stai ricevendo X perché..."*), (2) recurring subject prefixes (`[Series]`, `Series: ...`, and date/issue-stripped subject lines), (3) sender display name decomposed to separate publication/edition title from journalist personal names, (4) sender email local-part and publisher root domain (distinguishing shared platforms like Substack/Beehiiv from dedicated newsroom domains), and (5) normalized `utm_campaign` and web host.
+   - **Conflict Penalty & Historical Rule Learning (`newsletter_rules` table in [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts))**: Solves both same-sender multi-newsletter disambiguation (e.g., `alice@euobserver.com` sending both *"EUobserver morning"* and *"EUobserver Weekly"* applies a -70 pt conflict penalty on the edition mismatch and creates separate folders) and changing-journalist continuity (e.g., *"EUobserver morning"* sent by `alice@euobserver.com` today and `bob@euobserver.com` tomorrow matches via domain + masthead/footer/prefix). Moving or renaming a newsletter folder (`PATCH /api/articles/[id]`, `PATCH /api/folders/[id]`) updates the learned rules so future issues automatically follow user corrections.
+   - **Dedicated Newsletter Folders (`folders.folder_type = 'newsletter'`)**: Separated from general web article folders (`folder_type = 'article'`). Displayed as collapsible sub-folders directly beneath **Newsletters** in [`components/Sidebar.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/Sidebar.tsx) (with inline rename `Pencil`, issue count badges, and quick creation) and as a 1-tap horizontal series filter bar at the top of the **Newsletters** view in [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx).
+   - **Firefox Extension Auto-Folder Preview (`v0.3.0`, [`firefox-extension/popup.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/firefox-extension/popup.js), [`app/api/folders/detect-newsletter/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/folders/detect-newsletter/route.ts))**: On popup open in Gmail, queries `/api/folders/detect-newsletter` and pre-selects either `📁 Auto: <Existing Folder>` or `✨ Nuova cartella: <Suggested Name>` (with an inline editable input box to customize the name on the fly before saving), backed by automatic server-side resolution in `POST /api/articles`.
 
 ---
 

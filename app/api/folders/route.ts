@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { corsHeaders, handleOptions } from '@/lib/cors';
 import { isRequestAuthorized } from '@/lib/auth';
+import type { FolderType } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const folders = await db.getFolders();
+    const { searchParams } = new URL(request.url);
+    const rawType = searchParams.get('type');
+    const folderType: FolderType | undefined =
+      rawType === 'newsletter' || rawType === 'article' ? rawType : undefined;
+
+    const folders = await db.getFolders(folderType);
     return NextResponse.json({ success: true, folders }, { headers: corsHeaders() });
   } catch (error: any) {
     return NextResponse.json(
@@ -39,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, color } = body;
+    const { name, color, folder_type } = body;
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json(
         { success: false, error: 'Folder name is required' },
@@ -47,7 +53,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const folder = await db.createFolder(name, color || '#6366F1');
+    const folderType: FolderType =
+      folder_type === 'newsletter' ? 'newsletter' : 'article';
+    const folder = await db.createFolder(name, color || '#6366F1', folderType);
     return NextResponse.json({ success: true, folder }, { status: 201, headers: corsHeaders() });
   } catch (error: any) {
     const msg = String(error?.message || '');
