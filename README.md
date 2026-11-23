@@ -163,7 +163,7 @@ Now, while browsing in Safari or Firefox on iOS, tap **Share > PocketBox** to sa
 
 ### 4. Firefox Extension Setup on Mac
 1. **Download or Clone**:
-   * *Option A (Fastest)*: Download `pocketbox-firefox-extension-v0.1.0.zip` from the latest [GitHub Release](https://github.com/franzkappa/pocketbox/releases/latest) and extract it.
+   * *Option A (Fastest)*: Download `pocketbox-firefox-extension-v0.2.0.zip` from the latest [GitHub Release](https://github.com/franzkappa/pocketbox/releases/latest) and extract it.
    * *Option B*: Use the `firefox-extension/` directory from the cloned repository.
 2. Open Firefox and go to `about:debugging#/runtime/this-firefox`.
 3. Click **Load Temporary Add-on** and select `manifest.json` from the extracted/extension folder.

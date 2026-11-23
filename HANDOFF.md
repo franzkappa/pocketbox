@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations, Post-Save Tag & Folder Management, Gmail Newsletter Archiving, Dedicated Newsletters View & Autonomous Multi-Signal Newsletter Folder Organization)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v7`), the Firefox WebExtension (`v0.3.0` with targeted Gmail newsletter extraction and real-time auto-folder preview), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, dedicated newsletter archiving/reading, and autonomous multi-signal newsletter folder clustering are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.2.0 — Gmail Newsletter Archiving, Dedicated Newsletters View, Autonomous Multi-Signal Newsletter Folder Organization, Post-Save Tag & Folder Management & Mobile UX Fixes)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v7`), the Firefox WebExtension (`v0.3.0` with targeted Gmail newsletter extraction and real-time auto-folder preview), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, dedicated newsletter archiving/reading, and autonomous multi-signal newsletter folder clustering are active and verified end-to-end. The user's phone is 100% independent from the Mac. Release **v0.2.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -9,7 +9,7 @@
 
 - **Project Name**: `PocketBox`
 - **Location**: `/Users/federicocaruso/Documents/LLM projects/new pocket`
-- **Current Version**: `0.1.0` (Tag `v0.1.0`, published on [GitHub Releases](https://github.com/franzkappa/pocketbox/releases/tag/v0.1.0))
+- **Current Version**: `0.2.0` (Tag `v0.2.0`, published on [GitHub Releases](https://github.com/franzkappa/pocketbox/releases/tag/v0.2.0))
 - **GitHub Repository**: [https://github.com/franzkappa/pocketbox](https://github.com/franzkappa/pocketbox) (Public, `main` branch synced with `origin/main`)
 - **Repository Topics**: `pocket-alternative`, `omnivore-alternative`, `read-it-later`, `reading-list`, `bookmark-manager`, `self-hosted`, `offline-first`, `pwa`, `ios-shortcuts`, `firefox-extension`, `turso`, `sqlite`, `nextjs`, `react`
 - **1-Click Deploy Link**: Configured with Vercel deploy button pre-populating `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and `POCKETBOX_PASSWORD`
