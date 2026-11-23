@@ -58,7 +58,6 @@
 │  │ Firefox Extension (Manifest V3)                          │  │
 │  │  - 1-click toolbar popup with active tab DOM extraction  │  │
 │  │  - Configurable Cloud Server URL & Password in settings  │  │
-│  │  - Automatic background sync of "📥 PocketBox" folder    │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
 ```

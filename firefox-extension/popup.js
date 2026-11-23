@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveForm = document.getElementById('saveForm');
   const btnSave = document.getElementById('btnSave');
   const alertBox = document.getElementById('alertBox');
-  const btnSyncQueue = document.getElementById('btnSyncQueue');
   const openLibraryLink = document.getElementById('openLibraryLink');
 
   // Settings elements
@@ -195,21 +194,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       showAlert(`Save failed: ${err.message}`, 'error');
       btnSave.disabled = false;
       btnSave.textContent = '💾 Save to PocketBox';
-    }
-  });
-
-  // Handle manual queue sync trigger
-  btnSyncQueue.addEventListener('click', async () => {
-    btnSyncQueue.textContent = 'Syncing...';
-    try {
-      await browser.runtime.sendMessage({ action: 'sync_queue' });
-      showAlert('Bookmark queue check initiated!', 'success');
-    } catch (err) {
-      showAlert('Could not trigger sync', 'error');
-    } finally {
-      setTimeout(() => {
-        btnSyncQueue.textContent = '🔄 Sync Bookmark Queue';
-      }, 1500);
     }
   });
 });

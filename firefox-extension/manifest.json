@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PocketBox - Read It Later",
   "version": "0.1.0",
-  "description": "Asynchronous sync via Firefox bookmarks & 1-click tab saving for local PocketBox",
+  "description": "1-click tab saving with client-side DOM extraction for PocketBox",
   "browser_specific_settings": {
     "gecko": {
       "id": "pocketbox@local.selfhosted",
@@ -10,12 +10,9 @@
     }
   },
   "permissions": [
-    "bookmarks",
     "activeTab",
     "tabs",
     "storage",
-    "notifications",
-    "alarms",
     "scripting"
   ],
   "host_permissions": [
@@ -23,9 +20,6 @@
     "http://127.0.0.1:3000/*",
     "<all_urls>"
   ],
-  "background": {
-    "scripts": ["background.js"]
-  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

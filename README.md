@@ -42,7 +42,6 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - 1-click toolbar popup to save the active browser tab.
    - Configurable server URL and API key/password settings via built-in settings panel (⚙️).
    - **Client-Side DOM Extraction**: Injects and captures pre-authenticated, challenge-passed DOM (`document.documentElement.outerHTML`) to bypass aggressive anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération* and *Le Monde*.
-   - Asynchronous bookmark queue monitor for the `📥 PocketBox` folder.
 
 6. **Built-in Readability Engine (`@mozilla/readability` + JSDOM)**:
    - Strips ads, tracking scripts, cookie prompts, and clutter.
@@ -93,7 +92,6 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 │  │ Firefox Extension (Manifest V3)                          │  │
 │  │  - 1-click toolbar popup with active tab DOM extraction  │  │
 │  │  - Configurable Cloud Server URL & Password in settings  │  │
-│  │  - Automatic background sync of "📥 PocketBox" folder    │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -239,9 +237,8 @@ pocketbox/
 │   └── icons/                # High-res PWA & Apple touch icons
 └── firefox-extension/        # Firefox WebExtension (Manifest v3)
     ├── manifest.json         # Extension manifest
-    ├── background.js         # Bookmark listener & sync processor
     ├── popup.html            # 1-click toolbar action UI with settings modal
-    ├── popup.js              # Tab saving, settings & queue trigger
+    ├── popup.js              # Tab saving, DOM extraction & settings
     └── icons/                # Extension toolbar icons (16-128px)
 ```
 
