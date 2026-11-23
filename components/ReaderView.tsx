@@ -12,6 +12,7 @@ import {
   Moon, 
   Clock, 
   Globe, 
+  Mail,
   Minus, 
   Plus,
   Folder as FolderIcon,
@@ -60,6 +61,13 @@ export function ReaderView({
 
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
+  const isNewsletter = article.source_type === 'newsletter';
+  const isGmailUrl = /^https?:\/\/mail\.google\.com\//i.test(article.url);
+  const externalLinkTitle = isNewsletter
+    ? isGmailUrl
+      ? 'Open email in Gmail'
+      : 'Open newsletter web version'
+    : 'Open original website';
   const hasFolder = Boolean(article.folder);
   const hasTags = Boolean(article.tags && article.tags.length > 0);
 
@@ -440,8 +448,8 @@ export function ReaderView({
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition opacity-80 touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center"
-              title="Open original website"
-              aria-label="Open original website"
+              title={externalLinkTitle}
+              aria-label={externalLinkTitle}
             >
               <ExternalLink className="w-4 h-4" />
             </a>
@@ -470,10 +478,24 @@ export function ReaderView({
         <div className="max-w-[680px] mx-auto">
           {/* Article Header Metadata */}
           <div className="mb-8 pb-6 border-b border-black/10">
-            {/* Domain & Reading Time */}
-            <div className="flex items-center gap-3 text-xs font-semibold opacity-70 mb-3">
-              <span className="flex items-center gap-1.5 text-rose-500">
-                <Globe className="w-3.5 h-3.5" />
+            {/* Domain / Newsletter Source & Reading Time */}
+            <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold opacity-75 mb-3">
+              {isNewsletter && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-500 border border-indigo-500/25">
+                  <Mail className="w-3 h-3" />
+                  <span>Newsletter</span>
+                </span>
+              )}
+              <span
+                className={`flex items-center gap-1.5 ${
+                  isNewsletter ? 'text-indigo-500' : 'text-rose-500'
+                }`}
+              >
+                {isNewsletter ? (
+                  <Mail className="w-3.5 h-3.5" />
+                ) : (
+                  <Globe className="w-3.5 h-3.5" />
+                )}
                 <span>{article.site_name || new URL(article.url).hostname}</span>
               </span>
               <span>•</span>
@@ -493,7 +515,9 @@ export function ReaderView({
 
             {/* Author / Byline & Date */}
             <div className="text-xs opacity-70 space-y-1">
-              {article.byline && <div>By {article.byline}</div>}
+              {article.byline && (
+                <div>{isNewsletter ? `From ${article.byline}` : `By ${article.byline}`}</div>
+              )}
               <div>Saved on {new Date(article.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</div>
             </div>
 

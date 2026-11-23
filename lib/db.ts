@@ -1,7 +1,7 @@
 import { createClient, type Client } from '@libsql/client';
 import path from 'node:path';
 import fs from 'node:fs';
-import type { Article, Folder, Tag, ArticleQueryOptions } from './types';
+import type { Article, ArticleSourceType, Folder, Tag, ArticleQueryOptions } from './types';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'pocketbox.db');
@@ -58,6 +58,7 @@ async function ensureSchema(client: Client): Promise<void> {
       site_name TEXT,
       lead_image_url TEXT,
       reading_time_minutes INTEGER NOT NULL DEFAULT 1,
+      source_type TEXT NOT NULL DEFAULT 'article',
       folder_id TEXT,
       is_read INTEGER NOT NULL DEFAULT 0,
       is_favorite INTEGER NOT NULL DEFAULT 0,
@@ -77,6 +78,24 @@ async function ensureSchema(client: Client): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_articles_folder ON articles(folder_id);`,
     `CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);`,
   ], 'write');
+
+  // Idempotent migration for existing databases: ensure source_type column exists
+  try {
+    const tableInfo = await client.execute('PRAGMA table_info(articles)');
+    const hasSourceType = tableInfo.rows.some(
+      (col) => String(col.name).toLowerCase() === 'source_type'
+    );
+    if (!hasSourceType) {
+      await client.execute(
+        "ALTER TABLE articles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'article'"
+      );
+    }
+    await client.execute(
+      'CREATE INDEX IF NOT EXISTS idx_articles_source_type ON articles(source_type, is_archived)'
+    );
+  } catch (migErr) {
+    console.warn('[DB] source_type migration notice:', migErr);
+  }
 
   try {
     const folderRes = await client.execute('SELECT COUNT(*) as count FROM folders');
@@ -211,6 +230,8 @@ export const db = {
       conditions.push('a.is_archived = 1');
     } else if (options.filter === 'favorites') {
       conditions.push('a.is_favorite = 1');
+    } else if (options.filter === 'newsletters') {
+      conditions.push("a.source_type = 'newsletter' AND a.is_archived = 0");
     } else {
       conditions.push('a.is_archived = 0');
     }
@@ -235,7 +256,7 @@ export const db = {
     const query = `
       SELECT 
         a.id, a.url, a.title, a.byline, a.excerpt, a.content_html, a.text_content, a.site_name,
-        a.lead_image_url, a.reading_time_minutes, a.folder_id,
+        a.lead_image_url, a.reading_time_minutes, a.source_type, a.folder_id,
         a.is_read, a.is_favorite, a.is_archived, a.created_at, a.updated_at,
         f.name as folder_name, f.color as folder_color
       FROM articles a
@@ -288,6 +309,7 @@ export const db = {
         site_name: row.site_name ? String(row.site_name) : null,
         lead_image_url: row.lead_image_url ? String(row.lead_image_url) : null,
         reading_time_minutes: Number(row.reading_time_minutes || 1),
+        source_type: (row.source_type === 'newsletter' ? 'newsletter' : 'article') as ArticleSourceType,
         folder_id: row.folder_id ? String(row.folder_id) : null,
         is_read: Number(row.is_read || 0),
         is_favorite: Number(row.is_favorite || 0),
@@ -349,6 +371,7 @@ export const db = {
       site_name: row.site_name ? String(row.site_name) : null,
       lead_image_url: row.lead_image_url ? String(row.lead_image_url) : null,
       reading_time_minutes: Number(row.reading_time_minutes || 1),
+      source_type: (row.source_type === 'newsletter' ? 'newsletter' : 'article') as ArticleSourceType,
       folder_id: row.folder_id ? String(row.folder_id) : null,
       is_read: Number(row.is_read || 0),
       is_favorite: Number(row.is_favorite || 0),
@@ -381,6 +404,7 @@ export const db = {
     site_name?: string | null;
     lead_image_url?: string | null;
     reading_time_minutes?: number;
+    source_type?: ArticleSourceType;
     folder_id?: string | null;
     tags?: string[];
   }): Promise<Article> {
@@ -388,14 +412,16 @@ export const db = {
     await ensureSchema(client);
     const id = 'art_' + Math.random().toString(36).substring(2, 10);
     const now = new Date().toISOString();
+    const sourceType: ArticleSourceType =
+      data.source_type === 'newsletter' ? 'newsletter' : 'article';
 
     await client.execute({
       sql: `
         INSERT INTO articles (
           id, url, title, byline, excerpt, content_html, text_content,
-          site_name, lead_image_url, reading_time_minutes, folder_id,
+          site_name, lead_image_url, reading_time_minutes, source_type, folder_id,
           is_read, is_favorite, is_archived, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
       `,
       args: [
         id,
@@ -408,6 +434,7 @@ export const db = {
         data.site_name || null,
         data.lead_image_url || null,
         data.reading_time_minutes || 1,
+        sourceType,
         data.folder_id || null,
         now,
         now,
@@ -431,6 +458,7 @@ export const db = {
     site_name: string | null;
     lead_image_url: string | null;
     reading_time_minutes: number;
+    source_type: ArticleSourceType;
     is_read: number;
     is_favorite: number;
     is_archived: number;
@@ -473,6 +501,10 @@ export const db = {
     if (updates.reading_time_minutes !== undefined) {
       fields.push('reading_time_minutes = ?');
       params.push(updates.reading_time_minutes);
+    }
+    if (updates.source_type !== undefined) {
+      fields.push('source_type = ?');
+      params.push(updates.source_type === 'newsletter' ? 'newsletter' : 'article');
     }
     if (updates.is_read !== undefined) {
       fields.push('is_read = ?');

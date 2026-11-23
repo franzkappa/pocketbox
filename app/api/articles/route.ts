@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { extractArticle } from '@/lib/extractor';
+import { extractArticle, extractNewsletter } from '@/lib/extractor';
 import { corsHeaders, handleOptions } from '@/lib/cors';
 import { isRequestAuthorized } from '@/lib/auth';
-import type { ArticleFilter } from '@/lib/types';
+import type { ArticleFilter, ArticleSourceType } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
     let rawBody: any = null;
     let html: string | undefined = undefined;
     let title: string | undefined = undefined;
+    let site_name: string | undefined = undefined;
+    let byline: string | undefined = undefined;
+    let excerpt: string | undefined = undefined;
+    let source_type: ArticleSourceType = 'article';
     let folder_id: string | null = null;
     let tags: string[] = [];
 
@@ -84,6 +88,10 @@ export async function POST(request: NextRequest) {
         urlParam = rawBody.url || rawBody.URL || rawBody.link || rawBody.text || urlParam;
         html = rawBody.html;
         title = rawBody.title;
+        site_name = typeof rawBody.site_name === 'string' ? rawBody.site_name : undefined;
+        byline = typeof rawBody.byline === 'string' ? rawBody.byline : undefined;
+        excerpt = typeof rawBody.excerpt === 'string' ? rawBody.excerpt : undefined;
+        source_type = rawBody.source_type === 'newsletter' ? 'newsletter' : 'article';
         folder_id = rawBody.folder_id || null;
         tags = Array.isArray(rawBody.tags) ? rawBody.tags : [];
       } else if (typeof rawBody === 'string') {
@@ -109,21 +117,48 @@ export async function POST(request: NextRequest) {
     const existing = await db.getArticleByUrl(cleanUrl);
     if (existing) {
       const updates: any = {};
-      if (folder_id !== undefined) updates.folder_id = folder_id;
+      if (folder_id) updates.folder_id = folder_id;
       if (tags.length > 0) updates.tags = tags;
       if (existing.is_archived) updates.is_archived = 0;
+      if (source_type === 'newsletter' && existing.source_type !== 'newsletter') {
+        updates.source_type = 'newsletter';
+      }
 
-      // If existing article had fallback/placeholder content and client now provides rendered HTML:
-      if (html && (existing.content_html?.includes('Unable to extract full content') || !existing.content_html)) {
-        const reExtracted = await extractArticle(cleanUrl, { html, fallbackTitle: title || existing.title });
-        updates.title = reExtracted.title;
-        updates.byline = reExtracted.byline;
-        updates.excerpt = reExtracted.excerpt;
-        updates.content_html = reExtracted.content_html;
-        updates.text_content = reExtracted.text_content;
-        updates.site_name = reExtracted.site_name;
-        updates.lead_image_url = reExtracted.lead_image_url;
-        updates.reading_time_minutes = reExtracted.reading_time_minutes;
+      // If existing entry had fallback/placeholder content or is a newsletter re-saved with full HTML:
+      const shouldReExtract =
+        Boolean(html) &&
+        (source_type === 'newsletter' ||
+          existing.content_html?.includes('Unable to extract full content') ||
+          !existing.content_html);
+
+      if (shouldReExtract && html) {
+        const reExtracted =
+          source_type === 'newsletter'
+            ? await extractNewsletter(cleanUrl, {
+                html,
+                title: title || existing.title,
+                siteName: site_name || existing.site_name || undefined,
+                byline: byline || existing.byline || undefined,
+                excerpt,
+              })
+            : await extractArticle(cleanUrl, { html, fallbackTitle: title || existing.title });
+
+        // For newsletters, update content when existing was empty/fallback or new capture is at least as complete
+        const existingLen = existing.text_content?.length || 0;
+        if (
+          source_type !== 'newsletter' ||
+          existingLen === 0 ||
+          reExtracted.text_content.length >= existingLen * 0.9
+        ) {
+          updates.title = reExtracted.title;
+          updates.byline = reExtracted.byline;
+          updates.excerpt = reExtracted.excerpt;
+          updates.content_html = reExtracted.content_html;
+          updates.text_content = reExtracted.text_content;
+          updates.site_name = reExtracted.site_name;
+          updates.lead_image_url = reExtracted.lead_image_url;
+          updates.reading_time_minutes = reExtracted.reading_time_minutes;
+        }
       }
 
       const updated = Object.keys(updates).length > 0 ? await db.updateArticle(existing.id, updates) : existing;
@@ -133,8 +168,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract article content (from provided client HTML or server fetch)
-    const extracted = await extractArticle(cleanUrl, { html, fallbackTitle: title });
+    // Extract article or newsletter content (from provided client HTML or server fetch)
+    const extracted =
+      source_type === 'newsletter' && html
+        ? await extractNewsletter(cleanUrl, {
+            html,
+            title,
+            siteName: site_name,
+            byline,
+            excerpt,
+          })
+        : await extractArticle(cleanUrl, { html, fallbackTitle: title });
 
     // Persist to Database
     const article = await db.createArticle({
@@ -147,6 +191,7 @@ export async function POST(request: NextRequest) {
       site_name: extracted.site_name,
       lead_image_url: extracted.lead_image_url,
       reading_time_minutes: extracted.reading_time_minutes,
+      source_type,
       folder_id: folder_id || null,
       tags: tags,
     });

@@ -13,6 +13,8 @@ export interface Tag {
   article_count?: number;
 }
 
+export type ArticleSourceType = 'article' | 'newsletter';
+
 export interface Article {
   id: string;
   url: string;
@@ -24,6 +26,7 @@ export interface Article {
   site_name?: string | null;
   lead_image_url?: string | null;
   reading_time_minutes: number;
+  source_type?: ArticleSourceType;
   folder_id?: string | null;
   is_read: number; // 0 or 1
   is_favorite: number; // 0 or 1
@@ -34,7 +37,7 @@ export interface Article {
   tags?: Tag[];
 }
 
-export type ArticleFilter = 'inbox' | 'archive' | 'favorites';
+export type ArticleFilter = 'inbox' | 'newsletters' | 'archive' | 'favorites';
 
 export interface ArticleQueryOptions {
   filter?: ArticleFilter;

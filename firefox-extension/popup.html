@@ -11,7 +11,7 @@
       padding: 0;
     }
     body {
-      width: 340px;
+      width: 350px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #0F172A;
       color: #F8FAFC;
@@ -95,17 +95,54 @@
       background: #1E293B;
       border-radius: 10px;
       padding: 10px 12px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       border: 1px solid #334155;
+    }
+    .tab-info.newsletter {
+      border-color: rgba(99, 102, 241, 0.5);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), #1E293B);
+    }
+    .source-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .source-row.hidden {
+      display: none;
+    }
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #A5B4FC;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+    }
+    .link-hint {
+      font-size: 10px;
+      color: #94A3B8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .tab-title {
       font-weight: 600;
       color: #F1F5F9;
       margin-bottom: 4px;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
       font-size: 12px;
+      line-height: 1.35;
     }
     .tab-url {
       font-size: 11px;
@@ -159,6 +196,12 @@
     .btn-save:hover {
       background-color: #DC2626;
     }
+    .btn-save.newsletter {
+      background-color: #6366F1;
+    }
+    .btn-save.newsletter:hover {
+      background-color: #4F46E5;
+    }
     .btn-save:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -183,6 +226,7 @@
       padding: 8px 12px;
       border-radius: 8px;
       font-size: 12px;
+      line-height: 1.4;
       margin-bottom: 12px;
       display: none;
     }
@@ -197,6 +241,12 @@
       background-color: rgba(239, 68, 68, 0.15);
       border: 1px solid #EF4444;
       color: #F87171;
+    }
+    .alert-box.warning {
+      display: block;
+      background-color: rgba(245, 158, 11, 0.15);
+      border: 1px solid #F59E0B;
+      color: #FCD34D;
     }
     .footer-links {
       display: flex;
@@ -252,7 +302,11 @@
 
   <div id="alertBox" class="alert-box"></div>
 
-  <div class="tab-info">
+  <div id="tabInfo" class="tab-info">
+    <div id="sourceRow" class="source-row hidden">
+      <span id="sourceBadge" class="source-badge">📧 Newsletter Gmail</span>
+      <span id="linkHint" class="link-hint"></span>
+    </div>
     <div id="tabTitle" class="tab-title">Loading tab...</div>
     <div id="tabUrl" class="tab-url">...</div>
   </div>

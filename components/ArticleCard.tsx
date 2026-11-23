@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Tag as TagIcon, Folder as FolderIcon } from 'lucide-react';
+import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Mail, Tag as TagIcon, Folder as FolderIcon } from 'lucide-react';
 import type { Article } from '@/lib/types';
 
 interface ArticleCardProps {
@@ -25,6 +25,7 @@ export function ArticleCard({
 }: ArticleCardProps) {
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
+  const isNewsletter = article.source_type === 'newsletter';
   const hasFolder = Boolean(article.folder);
   const hasTags = Boolean(article.tags && article.tags.length > 0);
 
@@ -66,16 +67,30 @@ export function ArticleCard({
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80 pointer-events-none" />
         </div>
       ) : (
-        <div className="w-full h-1.5 bg-gradient-to-r from-rose-500/30 to-purple-500/30" />
+        <div
+          className={`w-full h-1.5 bg-gradient-to-r ${
+            isNewsletter
+              ? 'from-indigo-500/50 to-violet-500/40'
+              : 'from-rose-500/30 to-purple-500/30'
+          }`}
+        />
       )}
 
       {/* Content Area */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
           {/* Metadata Row: Site Name & Reading Time */}
-          <div className="flex items-center justify-between text-[11px] font-medium text-slate-400 mb-2">
-            <span className="flex items-center gap-1.5 truncate max-w-[65%] text-rose-400/90 font-semibold">
-              <Globe className="w-3 h-3 flex-shrink-0" />
+          <div className="flex items-center justify-between text-[11px] font-medium text-slate-400 mb-2 gap-2">
+            <span
+              className={`flex items-center gap-1.5 truncate max-w-[65%] font-semibold ${
+                isNewsletter ? 'text-indigo-400/95' : 'text-rose-400/90'
+              }`}
+            >
+              {isNewsletter ? (
+                <Mail className="w-3 h-3 flex-shrink-0" />
+              ) : (
+                <Globe className="w-3 h-3 flex-shrink-0" />
+              )}
               <span className="truncate">{article.site_name || new URL(article.url).hostname}</span>
             </span>
             <span className="flex items-center gap-1 text-slate-400 flex-shrink-0">
@@ -97,9 +112,15 @@ export function ArticleCard({
           )}
         </div>
 
-        {/* Folder & Tag Pills */}
-        {(article.folder || hasTags) && (
+        {/* Newsletter Badge, Folder & Tag Pills */}
+        {(isNewsletter || article.folder || hasTags) && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {isNewsletter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                <Mail className="w-2.5 h-2.5 flex-shrink-0" />
+                <span>Newsletter</span>
+              </span>
+            )}
             {article.folder && (
               <button
                 type="button"
@@ -150,7 +171,7 @@ export function ArticleCard({
         {/* Footer Area: Date & Actions */}
         <div
           className={`${
-            article.folder || hasTags ? 'mt-3' : 'mt-4'
+            isNewsletter || article.folder || hasTags ? 'mt-3' : 'mt-4'
           } pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2`}
         >
           <span className="text-[11px] text-slate-400 flex-shrink-0">

@@ -8,6 +8,7 @@ import {
   Bookmark, 
   Archive, 
   Inbox, 
+  Mail,
   RefreshCw, 
   BookOpen, 
   Sparkles,
@@ -199,8 +200,8 @@ export default function HomePage() {
   // Toggle archive
   const handleToggleArchive = async (article: Article) => {
     const newArch = article.is_archived === 1 ? 0 : 1;
-    // Optimistic update: if current filter is inbox, remove it from list
-    if (currentFilter === 'inbox' && newArch === 1) {
+    // Optimistic update: if current filter is inbox or newsletters, remove it from list when archived
+    if ((currentFilter === 'inbox' || currentFilter === 'newsletters') && newArch === 1) {
       setArticles((prev) => prev.filter((a) => a.id !== article.id));
     } else if (currentFilter === 'archive' && newArch === 0) {
       setArticles((prev) => prev.filter((a) => a.id !== article.id));
@@ -513,6 +514,7 @@ export default function HomePage() {
   const viewTitle = useMemo(() => {
     if (activeFolder) return `Folder: ${activeFolder.name}`;
     if (activeTag) return `Tag: #${activeTag.name}`;
+    if (currentFilter === 'newsletters') return 'Newsletters';
     if (currentFilter === 'favorites') return 'Favorites';
     if (currentFilter === 'archive') return 'Archive';
     return 'Inbox';
@@ -693,7 +695,9 @@ export default function HomePage() {
           ) : articles.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-80 text-center max-w-sm mx-auto px-4">
               <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-4 shadow-xl">
-                {currentFilter === 'favorites' ? (
+                {currentFilter === 'newsletters' ? (
+                  <Mail className="w-8 h-8 text-indigo-400/80" />
+                ) : currentFilter === 'favorites' ? (
                   <Bookmark className="w-8 h-8 text-amber-400/80" />
                 ) : currentFilter === 'archive' ? (
                   <Archive className="w-8 h-8 text-emerald-400/80" />
@@ -702,14 +706,18 @@ export default function HomePage() {
                 )}
               </div>
               <h3 className="text-base font-bold text-white mb-1">
-                {currentFilter === 'favorites'
+                {currentFilter === 'newsletters'
+                  ? 'No newsletters yet'
+                  : currentFilter === 'favorites'
                   ? 'No favorites yet'
                   : currentFilter === 'archive'
                   ? 'Archive is empty'
                   : 'Your inbox is clear'}
               </h3>
               <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                {currentFilter === 'inbox'
+                {currentFilter === 'newsletters'
+                  ? 'Open any newsletter in Gmail on Firefox and click the PocketBox extension to archive and read it distraction-free.'
+                  : currentFilter === 'inbox'
                   ? 'Save articles from Firefox on Mac or iPhone, or click "+ Add URL" to save your first read.'
                   : 'Articles you star or archive will appear right here.'}
               </p>

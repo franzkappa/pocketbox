@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { 
   Inbox, 
+  Mail,
   Bookmark, 
   Archive, 
   Folder as FolderIcon, 
@@ -123,6 +124,19 @@ export function Sidebar({
         >
           <Inbox className="w-4 h-4 text-rose-400" />
           <span className="flex-1 text-left">Inbox</span>
+        </button>
+
+        <button
+          onClick={() => {
+            onSelectFilter('newsletters');
+            onSelectFolder(undefined);
+            onSelectTag(undefined);
+            onClose();
+          }}
+          className={navItemClass(currentFilter === 'newsletters' && !selectedFolderId && !selectedTagId)}
+        >
+          <Mail className="w-4 h-4 text-indigo-400" />
+          <span className="flex-1 text-left">Newsletters</span>
         </button>
 
         <button
