@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations, Post-Save Tag & Folder Management)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer, the Firefox WebExtension, mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, and post-save article tag & folder management are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.1.0 + Mobile UI, Scroll Optimizations, Post-Save Tag & Folder Management, Gmail Newsletter Archiving & Dedicated Newsletters View)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v6`), the Firefox WebExtension (`v0.2.0` with targeted Gmail newsletter extraction), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, and dedicated newsletter archiving/reading are active and verified end-to-end. The user's phone is 100% independent from the Mac. Initial release **v0.1.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
 
 ---
 
@@ -19,10 +19,10 @@
   - **Styling**: Tailwind CSS + Lucide Icons
   - **Database Engine**: Hybrid `@libsql/client` (Turso Cloud SQLite via `libsql://` in production; local `./data/pocketbox.db` as development fallback)
   - **Cloud Hosting**: Vercel Serverless (24/7 always-on, zero cold spin-down for UI, automatic SSL)
-  - **Article Parser**: `@mozilla/readability` + `jsdom`
-  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v5`) + IndexedDB (`lib/offlineStorage.ts`)
+  - **Article & Newsletter Parser**: `@mozilla/readability` + custom `extractNewsletter` HTML cleaner (`jsdom`)
+  - **Offline Storage**: Service Worker (`public/sw.js`, `pocketbox-v6`) + IndexedDB (`lib/offlineStorage.ts`)
   - **iOS Ingestion**: Native iOS Shortcut via Apple Share Sheet calling `/api/save`
-  - **Browser Extension**: Firefox WebExtension (Manifest V3, `firefox-extension/` with configurable Cloud URL & API Key)
+  - **Browser Extension**: Firefox WebExtension (Manifest V3, `v0.2.0`, `firefox-extension/` with configurable Cloud URL, API Key, and targeted Gmail newsletter extractor)
 
 ---
 
@@ -74,7 +74,7 @@
 1. User opens `https://pocketboxnew.vercel.app` in Safari on iPhone and taps **Share > Add to Home Screen**.
 2. PocketBox runs as a standalone fullscreen app (`display: standalone`, `apple-mobile-web-app-capable`).
 3. Whenever online, all articles (including full `content_html`) are automatically synchronized to client-side **IndexedDB** (`pocketbox_offline`).
-4. When the device is offline or in airplane mode, the Service Worker (`pocketbox-v5`) serves the app shell from cache, and the reader displays articles seamlessly from IndexedDB.
+4. When the device is offline or in airplane mode, the Service Worker (`pocketbox-v6`) serves the app shell from cache, and the reader displays articles and newsletters seamlessly from IndexedDB.
 
 ### Mobile & Desktop Refresh Flow (Pull-to-Refresh & Rotating Reload Button)
 1. **Pull-to-Refresh Gesture**:
@@ -86,11 +86,12 @@
    - The UI does not clear or show an empty skeleton, ensuring continuous reading without screen flashing.
 3. Once updated, articles are updated in place and synchronized to IndexedDB for offline resilience.
 
-### Desktop Firefox Extension Flow
+### Desktop Firefox Extension Flow (Articles & Gmail Newsletters)
 1. User clicks the PocketBox toolbar icon in Firefox on Mac.
 2. In settings (⚙️), the extension is configured with Server URL `https://pocketboxnew.vercel.app` and password.
-3. The extension injects `document.documentElement.outerHTML` into the active tab to extract client-rendered DOM (bypassing DataDome / Cloudflare anti-bot blocks on paywalled news sites like *Libération*).
-4. The active tab DOM is sent to `/api/articles` with Bearer auth, ingested into Turso, and available across all devices.
+3. **Standard web pages**: The extension injects `extractCleanPageHtmlInPage` to capture client-rendered DOM while stripping `<script>`, `<style>`, `<noscript>`, `<template>`, large `<svg>`, and oversized base64 data URIs (bypassing DataDome / Cloudflare anti-bot blocks on paywalled news sites like *Libération* while keeping request payloads safely under Vercel's 4.5MB limit).
+4. **Gmail newsletters (`mail.google.com`)**: On popup open, the extension automatically injects `extractGmailNewsletterInPage` to extract *only* the currently open email (`.a3s.aiL` / `.a3s`, or Gmail's standalone `view=lg` / `view=pt` "View entire message" page), capturing subject, sender (`site_name` + `byline`), cleaned body HTML, clipped-message status, and public *"View in browser"* / *"Leggi nel browser"* web URL (falling back to a stable Gmail `#all/<threadId>` permalink).
+5. The payload is sent to `POST /api/articles` with Bearer auth (`source_type: 'article' | 'newsletter'`), ingested into Turso, and synced across all devices.
 
 ---
 
@@ -123,6 +124,7 @@ CREATE TABLE IF NOT EXISTS articles (
   site_name TEXT,
   lead_image_url TEXT,
   reading_time_minutes INTEGER NOT NULL DEFAULT 1,
+  source_type TEXT NOT NULL DEFAULT 'article',
   folder_id TEXT,
   is_read INTEGER NOT NULL DEFAULT 0,
   is_favorite INTEGER NOT NULL DEFAULT 0,
@@ -143,7 +145,10 @@ CREATE TABLE IF NOT EXISTS article_tags (
 CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(is_archived, is_favorite, is_read);
 CREATE INDEX IF NOT EXISTS idx_articles_folder ON articles(folder_id);
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_articles_source_type ON articles(source_type, is_archived);
 ```
+
+*(Note: `ensureSchema` runs an idempotent `PRAGMA table_info(articles)` check and automatically executes `ALTER TABLE articles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'article'` on existing SQLite/Turso databases.)*
 
 Default seeded folders: `Technology`, `Work`, `Long Reads`, `Personal`.  
 Default seeded tags: `must-read`, `quick`, `reference`.
@@ -157,8 +162,8 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` / `POST` | `/api/save` | High-speed ingestion for iOS Shortcuts & bookmarklets. Sanitizes nested iOS variable objects and query params (`?url=...&key=...` or JSON `{ "URL": "..." }`) |
-| `GET` | `/api/articles` | List articles with filters (`?filter=inbox\|archive\|favorites&folder_id=...&tag_id=...&q=...`) |
-| `POST` | `/api/articles` | Ingest article from URL or client-rendered HTML |
+| `GET` | `/api/articles` | List articles & newsletters with filters (`?filter=inbox\|newsletters\|archive\|favorites&folder_id=...&tag_id=...&q=...`) |
+| `POST` | `/api/articles` | Ingest article or newsletter (`source_type: 'article' \| 'newsletter'`, optional `site_name`, `byline`) from URL or client-rendered HTML |
 | `GET` | `/api/articles/[id]` | Get single article with full HTML |
 | `PATCH` | `/api/articles/[id]` | Update article state (`is_read`, `is_favorite`, `is_archived`, `folder_id`, `tags`) |
 | `DELETE` | `/api/articles/[id]` | Delete article permanently |
@@ -213,6 +218,11 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
    - Wired entry points in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) (dedicated Folder quick-action button + clickable folder pill in a dedicated pills row above the footer divider to prevent crowding on mobile) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (header Folder action icon + theme-aware folder pill under the title with click-to-change and 1-click `×` removal, or `Add to folder` button).
    - [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx) handles optimistic updates across the article grid (respecting active `selectedFolderId` filter), open `ReaderView`, and IndexedDB (`updateCachedArticleOffline`), persists via `PATCH /api/articles/[id]` with `{ folder_id }`, rolls back on server errors, and refreshes sidebar folder counts.
    - Hardened [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts), [`app/api/articles/[id]/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/%5Bid%5D/route.ts), and [`app/api/folders/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/folders/route.ts) with `getFolderById` existence validation (`404`), `folder_id` type/empty-string normalization (`400` / `null`), and duplicate folder name `409` handling.
+11. **Gmail Newsletter Archiving & Dedicated Newsletters View**:
+   - **Root Cause Fixed**: Previously, clicking the Firefox extension on Gmail serialized the entire Gmail web app DOM (`document.documentElement.outerHTML`, often 5–15 MB), exceeding Vercel's 4.5 MB Serverless Function request body limit. Vercel's edge gateway rejected it with `413 Payload Too Large` without Next.js CORS headers, surfacing in Firefox `fetch()` as `Save failed: NetworkError when attempting to fetch resource.`.
+   - **Targeted Gmail DOM Extraction ([`firefox-extension/popup.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/firefox-extension/popup.js), [`firefox-extension/popup.html`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/firefox-extension/popup.html), `v0.2.0`)**: Detects `mail.google.com` tabs on popup open and injects `extractGmailNewsletterInPage` to extract *only* the open email body (`.a3s.aiL` / `.a3s` last visible expanded message, or Gmail's standalone `view=lg` / `view=pt` full-message view), clean subject (`h2.hP`), and sender (`span.gD[email]`). Automatically detects public *"View in browser"* / *"Leggi nel browser"* links (EN/IT/FR/ES/DE plus Substack/Beehiiv/Ghost heading links matching subject) with Google redirect unwrapping and falls back to a canonical `https://mail.google.com/mail/u/<N>/#all/<threadId>` permalink so links remain valid after archiving in Gmail. Shows a clipped-message warning when `.iX` / `view=lg` is detected and disables saving when no email is open. Also applies lightweight DOM pruning (`extractCleanPageHtmlInPage`) with a 3.2 MB guard on regular web pages.
+   - **Dedicated Newsletter Cleaner ([`lib/extractor.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/extractor.ts) `extractNewsletter`, [`app/api/articles/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/route.ts))**: Because email newsletters rely on deeply nested `<table>` layouts that `@mozilla/readability` mangles or discards, `source_type: 'newsletter'` runs a dedicated JSDOM cleaner that unwraps layout tables (preserving real data tables), strips 1×1 tracking pixels, hidden preheaders, inline styles/colors/widths (maintaining full compatibility with all 4 Reader themes), unwraps `www.google.com/url?q=` redirects and `ci*.googleusercontent.com/(meips|proxy)/...#https://...` proxy images, selects a clean hero image, and generates boilerplate-free excerpts.
+   - **Database, Offline Cache & UI**: Added `source_type` (`'article' | 'newsletter'`) with idempotent `PRAGMA table_info(articles)` migration in [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts), offline `newsletters` filtering in [`lib/offlineStorage.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/offlineStorage.ts), Service Worker bump to `pocketbox-v6` in [`public/sw.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/public/sw.js), dedicated **Newsletters** nav item in [`components/Sidebar.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/Sidebar.tsx), indigo **Newsletter** badges and mail icons in [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx) and [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx) (with `From ...` attribution and smart external link tooltip), and responsive table/divider styling in [`app/globals.css`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/globals.css).
 
 ---
 

@@ -12,7 +12,7 @@
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox&env=TURSO_DATABASE_URL,TURSO_AUTH_TOKEN,POCKETBOX_PASSWORD&envDescription=Turso%20Database%20credentials%20and%20your%20PocketBox%20access%20PIN&envLink=https%3A%2F%2Fgithub.com%2Ffranzkappa%2Fpocketbox%231-database-setup-turso-cloud-sqlite)
 
 **PocketBox** is a personal, private, cloud-hosted & offline-first "Read It Later" platform inspired by Mozilla Pocket and a lightweight open-source alternative to Pocket, Omnivore, and Instapaper.  
-It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring your Mac or PC to stay powered on, provides a **100% offline-capable PWA** reading experience on iPhone, allows **1-tap saving directly from the iOS Share Sheet**, and seamlessly synchronizes with a dedicated **Firefox desktop extension**.
+It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring your Mac or PC to stay powered on, provides a **100% offline-capable PWA** reading experience on iPhone, allows **1-tap saving directly from the iOS Share Sheet**, and seamlessly synchronizes with a dedicated **Firefox desktop extension** supporting both web articles and **Gmail newsletters**.
 
 ---
 
@@ -29,7 +29,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 
 3. **Offline-First PWA on iPhone (True Offline Reading)**:
    - Add to Home Screen as a standalone fullscreen app with custom icon and splash styling.
-   - **Service Worker (`pocketbox-v5`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles (including full text and cleaned HTML).
+   - **Service Worker (`pocketbox-v6`) + IndexedDB (`pocketbox_offline`)**: Automatically replicates all downloaded articles and newsletters (including full text and cleaned HTML) with full offline filtering across Inbox, Newsletters, Favorites, Archive, Folders, and Tags.
    - **Zero connection required**: Open the app and read your entire library on flights, subways, or in airplane mode.
    - **iOS Safe Area & iPhone SE Optimization**: Dynamic viewport adaptation (`100dvh`), status bar clearance (`pt-safe`), and touch-optimized controls.
    - **Flicker-Free Mobile Scrolling**: Zero-re-render scroll progress tracking via `requestAnimationFrame`, touch-aware hover isolation (`future.hoverOnlyWhenSupported`), WebKit GPU layer isolation (`translateZ(0)`), and asynchronous image decoding (`decoding="async"`) for 120 FPS scrolling without image blinking, clipping glitches, or hover stutter.
@@ -38,15 +38,18 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - **Scroll Down / Pull-to-Refresh**: Native touch-driven pull gesture directly on mobile. Pulling down from the top reveals an animated rotating indicator pill with tactile resistance and haptic vibration (`navigator.vibrate`), smoothly refreshing articles on release.
    - **Rotating Arrow Button**: Prominently placed in the top navigation bar and sidebar footer. Tapping the button triggers a rotating animation (`animate-spin`) while performing silent background revalidation, avoiding any jarring flashes or blanking of the library view.
 
-5. **Desktop Firefox Extension (Manifest V3)**:
-   - 1-click toolbar popup to save the active browser tab.
+5. **Desktop Firefox Extension (Manifest V3, v0.2.0)**:
+   - 1-click toolbar popup to save the active browser tab or an open **Gmail newsletter**.
    - Configurable server URL and API key/password settings via built-in settings panel (⚙️).
-   - **Client-Side DOM Extraction**: Injects and captures pre-authenticated, challenge-passed DOM (`document.documentElement.outerHTML`) to bypass aggressive anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération* and *Le Monde*.
+   - **Client-Side DOM Extraction & Payload Protection**: Injects and captures pre-authenticated, challenge-passed DOM (pruning `<script>`, `<style>`, `<noscript>`, and oversized inline SVGs/data URIs to stay well below Vercel's 4.5MB serverless limit) to bypass aggressive anti-bot gates (DataDome, Cloudflare) and paywalls on sites like *Libération* and *Le Monde*.
+   - **Gmail Newsletter Extractor (`mail.google.com`)**: Automatically detects open emails (including Gmail's *"View entire message"* `view=lg` view), extracts only the newsletter subject, sender, and email body, detects public *"View in browser"* / *"Leggi nel browser"* links (falling back to a stable Gmail `#all/<threadId>` permalink that remains valid even after archiving the email in Gmail), warns if Gmail clipped the message, and prevents saving when on the inbox list without an open email.
 
-6. **Built-in Readability Engine (`@mozilla/readability` + JSDOM)**:
-   - Strips ads, tracking scripts, cookie prompts, and clutter.
-   - Clean typography with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
-   - Adjustable font sizes, font families (Serif, Sans, Mono), and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
+6. **Dedicated Newsletter Archiving & Distraction-Free Reader**:
+   - **Dedicated Newsletters View**: Browse all active newsletters in their own **Newsletters** section in the sidebar (with indigo **Newsletter** badges and mail icons on cards and inside the Reader), while still organizing them freely with any Folders, Tags, Favorites, or Archive.
+   - **Custom Newsletter HTML Cleaner (`extractNewsletter`)**: Unwraps nested email layout `<table>` wrappers (preserving real data tables), strips 1×1 tracking pixels, hidden preheaders, and hardcoded inline colors/widths, unwraps Google redirect links and Gmail proxy image URLs, and selects a clean hero image while skipping social icons and logos.
+   - **Built-in Readability Engine (`@mozilla/readability` + JSDOM)** for web articles: Strips ads, tracking scripts, cookie prompts, and clutter.
+   - Clean typography for both articles and newsletters with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
+   - Adjustable font sizes, font families (Serif, Sans, Mono), responsive table/divider styling, and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
    - Responsive appearance popover centered with safe margin clearance across all mobile and desktop viewports, supporting click-outside and `Esc` shortcut dismissal.
 
 7. **Flexible Organization — Folders & Tags (Before & After Saving)**:
@@ -177,8 +180,8 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` / `POST` | `/api/save` | Fast 1-action save endpoint for iOS Shortcuts & bookmarklets (`?url=...&key=...` or JSON body `{ "url": "..." }`) |
-| `GET` | `/api/articles` | List articles with filters (`?filter=inbox\|archive\|favorites&folder_id=...&tag_id=...&q=...`) |
-| `POST` | `/api/articles` | Ingest article from URL or client-rendered HTML |
+| `GET` | `/api/articles` | List articles & newsletters with filters (`?filter=inbox\|newsletters\|archive\|favorites&folder_id=...&tag_id=...&q=...`) |
+| `POST` | `/api/articles` | Ingest article or newsletter (`source_type: 'article' \| 'newsletter'`) from URL or client-rendered HTML |
 | `GET` | `/api/articles/[id]` | Retrieve single article with full HTML content |
 | `PATCH` | `/api/articles/[id]` | Update read, favorite, archive, folder, or tag status |
 | `DELETE` | `/api/articles/[id]` | Delete article permanently |
@@ -206,13 +209,13 @@ pocketbox/
 ├── lib/
 │   ├── db.ts                 # Dual-mode DB: Turso Cloud or local SQLite (@libsql/client)
 │   ├── auth.ts               # Resilient password, PIN & token verification
-│   ├── extractor.ts          # Readability + JSDOM content parser
+│   ├── extractor.ts          # Readability + dedicated Gmail/email newsletter HTML cleaner (JSDOM)
 │   ├── offlineStorage.ts     # Client-side IndexedDB caching for iOS PWA
 │   ├── cors.ts               # Permissive CORS headers
 │   └── types.ts              # TypeScript interfaces
 ├── app/
 │   ├── layout.tsx            # PWA shell, meta tags, and Service Worker registration
-│   ├── page.tsx              # Main library view (Inbox, Archive, Favorites)
+│   ├── page.tsx              # Main library view (Inbox, Newsletters, Favorites, Archive)
 │   ├── add/                  # Web Share Target & bookmarklet ingest page
 │   ├── globals.css           # Reader & Tailwind base styling
 │   └── api/
@@ -232,13 +235,13 @@ pocketbox/
 │   └── LoginView.tsx         # Password/PIN login view
 ├── public/
 │   ├── manifest.json         # Standalone PWA Manifest (with Web Share Target)
-│   ├── sw.js                 # Service Worker (pocketbox-v5) for offline fallback
+│   ├── sw.js                 # Service Worker (pocketbox-v6) for offline fallback
 │   ├── favicon.svg           # Vector favicon
 │   └── icons/                # High-res PWA & Apple touch icons
-└── firefox-extension/        # Firefox WebExtension (Manifest v3)
+└── firefox-extension/        # Firefox WebExtension (Manifest v3, v0.2.0)
     ├── manifest.json         # Extension manifest
-    ├── popup.html            # 1-click toolbar action UI with settings modal
-    ├── popup.js              # Tab saving, DOM extraction & settings
+    ├── popup.html            # 1-click toolbar action UI with newsletter badge & settings modal
+    ├── popup.js              # Tab & Gmail newsletter extraction, payload pruning & settings
     └── icons/                # Extension toolbar icons (16-128px)
 ```
 
@@ -247,6 +250,7 @@ pocketbox/
 ## ❓ Troubleshooting
 
 - **Extension shows "Offline"**: Click ⚙️ in the extension popup and verify the Server URL starts with `https://` (e.g. `https://your-app.vercel.app`) and the password matches `POCKETBOX_PASSWORD`.
+- **Gmail newsletter was clipped**: Gmail truncates emails larger than 102 KB. If the extension displays a clipped-message warning, click **"View entire message"** / **"Visualizza l'intero messaggio"** in Gmail (which opens the full `view=lg` email tab) and click the PocketBox extension icon from there to capture the full newsletter.
 - **Shortcut returns "Valid URL is required"**: Ensure in the iOS Shortcut that the Request Body has key `URL` and value set to the dynamic variable pill `Shortcut Input` (not typed out as plain text).
 - **Checking Cloud Health**: Navigate to `https://your-app.vercel.app/api/auth/status` in any browser. It should return `"database": { "status": "ok", "type": "turso_cloud" }`.
 - **Force PWA Refresh**: On iPhone, swipe the PWA away from the App Switcher and reopen it.
