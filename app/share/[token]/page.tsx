@@ -21,6 +21,21 @@ function getSafeSiteName(siteName: string | null | undefined, url: string): stri
   }
 }
 
+function getSafeOriginalUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    if (parsed.hostname === 'mail.google.com') {
+      return null;
+    }
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -79,6 +94,7 @@ export default async function SharedArticlePage({
 
   const sharedArticle: SharedArticle = {
     title: article.title,
+    original_url: getSafeOriginalUrl(article.url),
     byline: article.byline ?? null,
     excerpt: article.excerpt ?? null,
     content_html: sanitizedHtml,

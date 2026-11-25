@@ -61,7 +61,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
 8. **1-Click Saved Copy Sharing (`/share/[token]`)**:
    - Share the **server-saved copy** of any article or Gmail newsletter (never the original or private Gmail URL) via a single click from either a **Library card** (`ArticleCard`) or inside the **Reader View**.
    - Generates a private, unguessable `share_token` on demand (`POST /api/articles/[id]/share`) and copies the link directly to your clipboard (with Safari/iOS `ClipboardItem` gesture preservation and fallback toast).
-   - Opens in a clean, login-free public reader (`/share/[token]`) with theme/font/size controls, OpenGraph link previews, `noindex` robots metadata, and server-side HTML sanitization (`lib/sanitize.ts`) — without exposing personal folders, tags, or original source URLs.
+   - Opens in a clean, login-free public reader (`/share/[token]`) with theme/font/size controls, a link to the original article at the top (excluding private `mail.google.com` newsletter permalinks), OpenGraph link previews, `noindex` robots metadata, and server-side HTML sanitization (`lib/sanitize.ts`) — without exposing personal folders or tags.
 
 9. **Privacy & Security**:
    - Protected by personal password/PIN (`POCKETBOX_PASSWORD`) with 1-year persistent session cookie.

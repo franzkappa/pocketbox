@@ -92,6 +92,7 @@ export interface Article {
 
 export interface SharedArticle {
   title: string;
+  original_url: string | null;
   byline: string | null;
   excerpt: string | null;
   content_html: string;

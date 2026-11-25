@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Bookmark,
   Clock,
+  ExternalLink,
   Globe,
   Mail,
   Minus,
@@ -331,6 +332,22 @@ export function SharedArticleReader({ article }: SharedArticleReaderProps) {
                 </div>
               )}
             </div>
+
+            {article.original_url && (
+              <a
+                href={article.original_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-black/10 transition text-xs font-semibold opacity-85 hover:opacity-100 touch-manipulation min-h-[38px]"
+                title={isNewsletter ? 'Open newsletter web version' : 'Open original article'}
+                aria-label={isNewsletter ? 'Open newsletter web version' : 'Open original article'}
+              >
+                <ExternalLink className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">
+                  {isNewsletter ? 'Web version' : 'Original'}
+                </span>
+              </a>
+            )}
           </div>
         </div>
 
@@ -395,6 +412,25 @@ export function SharedArticleReader({ article }: SharedArticleReaderProps) {
               )}
               {savedDate && <div>Saved on {savedDate}</div>}
             </div>
+
+            {article.original_url && (
+              <div className="mt-4">
+                <a
+                  href={article.original_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1.5 max-w-full px-3 py-1.5 rounded-xl border text-xs font-medium opacity-85 hover:opacity-100 transition ${currentTheme.card} ${currentTheme.border}`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  <span className="shrink-0 font-semibold">
+                    {isNewsletter ? 'Web version:' : 'Original article:'}
+                  </span>
+                  <span className="truncate underline underline-offset-2">
+                    {article.original_url}
+                  </span>
+                </a>
+              </div>
+            )}
           </div>
 
           {article.lead_image_url && (
