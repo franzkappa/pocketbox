@@ -80,6 +80,7 @@ export interface Article {
   reading_time_minutes: number;
   source_type?: ArticleSourceType;
   folder_id?: string | null;
+  share_token?: string | null;
   is_read: number; // 0 or 1
   is_favorite: number; // 0 or 1
   is_archived: number; // 0 or 1
@@ -87,6 +88,18 @@ export interface Article {
   updated_at: string;
   folder?: Folder | null;
   tags?: Tag[];
+}
+
+export interface SharedArticle {
+  title: string;
+  byline: string | null;
+  excerpt: string | null;
+  content_html: string;
+  site_name: string | null;
+  lead_image_url: string | null;
+  reading_time_minutes: number;
+  source_type: ArticleSourceType;
+  created_at: string;
 }
 
 export type ArticleFilter = 'inbox' | 'newsletters' | 'archive' | 'favorites';

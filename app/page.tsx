@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Menu, 
   Search, 
@@ -12,6 +12,8 @@ import {
   RefreshCw, 
   BookOpen, 
   Sparkles,
+  Check,
+  Copy,
   X
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
@@ -28,6 +30,11 @@ import {
   updateCachedArticleOffline, 
   deleteCachedArticleOffline 
 } from '@/lib/offlineStorage';
+import {
+  copyTextToClipboard,
+  ShareAuthError,
+  shareArticleAndCopy,
+} from '@/lib/shareClient';
 import type { Article, Folder, FolderType, Tag, ArticleFilter } from '@/lib/types';
 
 export default function HomePage() {
@@ -48,6 +55,33 @@ export default function HomePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const [shareToast, setShareToast] = useState<{
+    type: 'success' | 'manual' | 'error';
+    message: string;
+    url?: string;
+  } | null>(null);
+  const shareToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showShareToast = useCallback(
+    (toast: { type: 'success' | 'manual' | 'error'; message: string; url?: string }, durationMs = 3000) => {
+      if (shareToastTimerRef.current) {
+        clearTimeout(shareToastTimerRef.current);
+      }
+      setShareToast(toast);
+      if (durationMs > 0) {
+        shareToastTimerRef.current = setTimeout(() => {
+          setShareToast(null);
+        }, durationMs);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      if (shareToastTimerRef.current) clearTimeout(shareToastTimerRef.current);
+    };
+  }, []);
 
   // Monitor online status
   useEffect(() => {
@@ -424,6 +458,54 @@ export default function HomePage() {
       // Offline fallback
     }
   };
+
+  // Share saved article/newsletter link (generate token & copy to clipboard)
+  const handleShareArticle = useCallback(
+    async (article: Article): Promise<boolean> => {
+      try {
+        const { shareToken, shareUrl, copied } = await shareArticleAndCopy(article);
+
+        if (article.share_token !== shareToken) {
+          setArticles((prev) =>
+            prev.map((a) => (a.id === article.id ? { ...a, share_token: shareToken } : a))
+          );
+          setSelectedArticle((prev) =>
+            prev && prev.id === article.id ? { ...prev, share_token: shareToken } : prev
+          );
+          updateCachedArticleOffline(article.id, { share_token: shareToken });
+        }
+
+        if (copied) {
+          showShareToast({
+            type: 'success',
+            message: 'Share link copied to clipboard',
+          });
+          return true;
+        }
+
+        showShareToast(
+          {
+            type: 'manual',
+            message: 'Share link ready — tap Copy',
+            url: shareUrl,
+          },
+          8000
+        );
+        return false;
+      } catch (err: any) {
+        if (err instanceof ShareAuthError) {
+          setNeedsAuth(true);
+          return false;
+        }
+        showShareToast({
+          type: 'error',
+          message: err?.message || 'Unable to generate share link',
+        });
+        return false;
+      }
+    },
+    [showShareToast]
+  );
 
   // Save new article
   const handleSaveArticle = async (url: string, folderId?: string, tagNames?: string[]) => {
@@ -853,6 +935,7 @@ export default function HomePage() {
                   onDelete={handleDeleteArticle}
                   onEditFolder={setEditingFolderArticle}
                   onEditTags={setEditingTagsArticle}
+                  onShare={handleShareArticle}
                 />
               ))}
             </div>
@@ -871,6 +954,7 @@ export default function HomePage() {
           onRemoveFolder={handleRemoveArticleFolder}
           onEditTags={setEditingTagsArticle}
           onRemoveTag={handleRemoveSingleTag}
+          onShare={handleShareArticle}
           isTagsModalOpen={Boolean(editingTagsArticle)}
           isFolderModalOpen={Boolean(editingFolderArticle)}
         />
@@ -901,6 +985,61 @@ export default function HomePage() {
         tags={tags}
         onSave={handleSaveArticle}
       />
+
+      {/* Share Link Toast / Manual Copy Fallback */}
+      {shareToast && (
+        <div className="fixed bottom-[calc(var(--sab)+1rem)] left-1/2 -translate-x-1/2 z-[60] w-[calc(100vw-2rem)] max-w-md pointer-events-auto">
+          <div
+            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-md text-xs font-medium ${
+              shareToast.type === 'error'
+                ? 'bg-rose-950/95 border-rose-500/40 text-rose-100'
+                : 'bg-slate-900/95 border-slate-700 text-slate-100'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {shareToast.type === 'success' && (
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate">{shareToast.message}</div>
+                {shareToast.url && (
+                  <div className="text-[11px] text-slate-400 truncate select-all mt-0.5">
+                    {shareToast.url}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {shareToast.url && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await copyTextToClipboard(shareToast.url!);
+                  if (ok) {
+                    showShareToast({
+                      type: 'success',
+                      message: 'Share link copied to clipboard',
+                    });
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shrink-0 transition"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShareToast(null)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 shrink-0 transition"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

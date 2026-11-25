@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Mail, Tag as TagIcon, Folder as FolderIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Mail, Tag as TagIcon, Folder as FolderIcon, Share2, Check, Loader2 } from 'lucide-react';
 import type { Article } from '@/lib/types';
 
 interface ArticleCardProps {
@@ -12,6 +12,7 @@ interface ArticleCardProps {
   onDelete: (article: Article) => void;
   onEditFolder: (article: Article) => void;
   onEditTags: (article: Article) => void;
+  onShare: (article: Article) => Promise<boolean>;
 }
 
 export function ArticleCard({
@@ -22,7 +23,34 @@ export function ArticleCard({
   onDelete,
   onEditFolder,
   onEditTags,
+  onShare,
 }: ArticleCardProps) {
+  const [shareState, setShareState] = useState<'idle' | 'loading' | 'copied'>('idle');
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    };
+  }, []);
+
+  const handleShareClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (shareState === 'loading') return;
+    setShareState('loading');
+    try {
+      const ok = await onShare(article);
+      if (ok) {
+        setShareState('copied');
+        if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+        shareTimerRef.current = setTimeout(() => setShareState('idle'), 2000);
+      } else {
+        setShareState('idle');
+      }
+    } catch {
+      setShareState('idle');
+    }
+  };
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
   const isNewsletter = article.source_type === 'newsletter';
@@ -251,6 +279,28 @@ export function ArticleCard({
                 <ArchiveRestore className="w-3.5 h-3.5" />
               ) : (
                 <Archive className="w-3.5 h-3.5" />
+              )}
+            </button>
+
+            {/* Share Saved Copy */}
+            <button
+              type="button"
+              onClick={handleShareClick}
+              disabled={shareState === 'loading'}
+              className={`p-2 rounded-lg transition touch-manipulation min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 ${
+                shareState === 'copied'
+                  ? 'text-emerald-400 bg-emerald-400/10'
+                  : 'text-slate-400 hover:text-indigo-400 hover:bg-slate-800'
+              }`}
+              title={shareState === 'copied' ? 'Share link copied!' : 'Copy share link'}
+              aria-label={shareState === 'copied' ? 'Share link copied' : 'Copy share link'}
+            >
+              {shareState === 'loading' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : shareState === 'copied' ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Share2 className="w-3.5 h-3.5" />
               )}
             </button>
 

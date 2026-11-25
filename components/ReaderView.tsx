@@ -17,6 +17,9 @@ import {
   Plus,
   Folder as FolderIcon,
   Tag as TagIcon,
+  Share2,
+  Check,
+  Loader2,
   X
 } from 'lucide-react';
 import type { Article } from '@/lib/types';
@@ -30,6 +33,7 @@ interface ReaderViewProps {
   onRemoveFolder: (article: Article) => void;
   onEditTags: (article: Article) => void;
   onRemoveTag: (article: Article, tagName: string) => void;
+  onShare: (article: Article) => Promise<boolean>;
   isTagsModalOpen?: boolean;
   isFolderModalOpen?: boolean;
 }
@@ -46,6 +50,7 @@ export function ReaderView({
   onRemoveFolder,
   onEditTags,
   onRemoveTag,
+  onShare,
   isTagsModalOpen = false,
   isFolderModalOpen = false,
 }: ReaderViewProps) {
@@ -54,10 +59,38 @@ export function ReaderView({
   const [fontFamily, setFontFamily] = useState<FontFamily>('serif');
   const [fontSize, setFontSize] = useState<number>(19);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [shareState, setShareState] = useState<'idle' | 'loading' | 'copied'>('idle');
   const contentRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const rafIdRef = useRef<number | null>(null);
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setShareState('idle');
+    return () => {
+      if (shareTimerRef.current) {
+        clearTimeout(shareTimerRef.current);
+      }
+    };
+  }, [article.id]);
+
+  const handleShareClick = async () => {
+    if (shareState === 'loading') return;
+    setShareState('loading');
+    try {
+      const ok = await onShare(article);
+      if (ok) {
+        setShareState('copied');
+        if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+        shareTimerRef.current = setTimeout(() => setShareState('idle'), 2000);
+      } else {
+        setShareState('idle');
+      }
+    } catch {
+      setShareState('idle');
+    }
+  };
 
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
@@ -439,6 +472,26 @@ export function ReaderView({
                 <ArchiveRestore className="w-4 h-4" />
               ) : (
                 <Archive className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Share Saved Copy Link */}
+            <button
+              type="button"
+              onClick={handleShareClick}
+              disabled={shareState === 'loading'}
+              className={`p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition touch-manipulation min-w-[36px] sm:min-w-[38px] min-h-[38px] flex items-center justify-center ${
+                shareState === 'copied' ? 'text-emerald-500' : 'opacity-80'
+              }`}
+              title={shareState === 'copied' ? 'Share link copied!' : 'Copy share link'}
+              aria-label={shareState === 'copied' ? 'Share link copied' : 'Copy share link'}
+            >
+              {shareState === 'loading' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : shareState === 'copied' ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Share2 className="w-4 h-4" />
               )}
             </button>
 

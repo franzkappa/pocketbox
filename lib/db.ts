@@ -1,4 +1,5 @@
 import { createClient, type Client } from '@libsql/client';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import type {
@@ -90,6 +91,7 @@ async function ensureSchema(client: Client): Promise<void> {
       reading_time_minutes INTEGER NOT NULL DEFAULT 1,
       source_type TEXT NOT NULL DEFAULT 'article',
       folder_id TEXT,
+      share_token TEXT,
       is_read INTEGER NOT NULL DEFAULT 0,
       is_favorite INTEGER NOT NULL DEFAULT 0,
       is_archived INTEGER NOT NULL DEFAULT 0,
@@ -126,6 +128,21 @@ async function ensureSchema(client: Client): Promise<void> {
     );
   } catch (migErr) {
     console.warn('[DB] source_type migration notice:', migErr);
+  }
+
+  try {
+    const tableInfo = await client.execute('PRAGMA table_info(articles)');
+    const hasShareToken = tableInfo.rows.some(
+      (col) => String(col.name).toLowerCase() === 'share_token'
+    );
+    if (!hasShareToken) {
+      await client.execute('ALTER TABLE articles ADD COLUMN share_token TEXT');
+    }
+    await client.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_share_token ON articles(share_token)'
+    );
+  } catch (shareMigErr) {
+    console.warn('[DB] share_token migration notice:', shareMigErr);
   }
 
   try {
@@ -604,7 +621,7 @@ export const db = {
     const query = `
       SELECT 
         a.id, a.url, a.title, a.byline, a.excerpt, a.content_html, a.text_content, a.site_name,
-        a.lead_image_url, a.reading_time_minutes, a.source_type, a.folder_id,
+        a.lead_image_url, a.reading_time_minutes, a.source_type, a.folder_id, a.share_token,
         a.is_read, a.is_favorite, a.is_archived, a.created_at, a.updated_at,
         f.name as folder_name, f.color as folder_color, f.folder_type as folder_type
       FROM articles a
@@ -665,6 +682,7 @@ export const db = {
         reading_time_minutes: Number(row.reading_time_minutes || 1),
         source_type: (row.source_type === 'newsletter' ? 'newsletter' : 'article') as ArticleSourceType,
         folder_id: row.folder_id ? String(row.folder_id) : null,
+        share_token: row.share_token ? String(row.share_token) : null,
         is_read: Number(row.is_read || 0),
         is_favorite: Number(row.is_favorite || 0),
         is_archived: Number(row.is_archived || 0),
@@ -733,6 +751,7 @@ export const db = {
       reading_time_minutes: Number(row.reading_time_minutes || 1),
       source_type: (row.source_type === 'newsletter' ? 'newsletter' : 'article') as ArticleSourceType,
       folder_id: row.folder_id ? String(row.folder_id) : null,
+      share_token: row.share_token ? String(row.share_token) : null,
       is_read: Number(row.is_read || 0),
       is_favorite: Number(row.is_favorite || 0),
       is_archived: Number(row.is_archived || 0),
@@ -741,6 +760,83 @@ export const db = {
       folder,
       tags,
     };
+  },
+
+  async getArticleByShareToken(token: string): Promise<Article | null> {
+    const client = getClient();
+    await ensureSchema(client);
+    const trimmed = token.trim();
+    if (!trimmed) return null;
+
+    const rs = await client.execute({
+      sql: `
+        SELECT
+          id, url, title, byline, excerpt, content_html, text_content, site_name,
+          lead_image_url, reading_time_minutes, source_type, share_token,
+          is_read, is_favorite, is_archived, created_at, updated_at
+        FROM articles
+        WHERE share_token = ?
+        LIMIT 1
+      `,
+      args: [trimmed],
+    });
+
+    if (rs.rows.length === 0) return null;
+    const row = rs.rows[0];
+
+    return {
+      id: String(row.id),
+      url: String(row.url),
+      title: String(row.title),
+      byline: row.byline ? String(row.byline) : null,
+      excerpt: row.excerpt ? String(row.excerpt) : null,
+      content_html: row.content_html ? String(row.content_html) : null,
+      text_content: row.text_content ? String(row.text_content) : null,
+      site_name: row.site_name ? String(row.site_name) : null,
+      lead_image_url: row.lead_image_url ? String(row.lead_image_url) : null,
+      reading_time_minutes: Number(row.reading_time_minutes || 1),
+      source_type: (row.source_type === 'newsletter' ? 'newsletter' : 'article') as ArticleSourceType,
+      folder_id: null,
+      share_token: row.share_token ? String(row.share_token) : null,
+      is_read: Number(row.is_read || 0),
+      is_favorite: Number(row.is_favorite || 0),
+      is_archived: Number(row.is_archived || 0),
+      created_at: String(row.created_at || ''),
+      updated_at: String(row.updated_at || ''),
+    };
+  },
+
+  async createOrGetShareToken(id: string): Promise<string | null> {
+    const client = getClient();
+    await ensureSchema(client);
+
+    const existing = await client.execute({
+      sql: 'SELECT id, share_token FROM articles WHERE id = ? LIMIT 1',
+      args: [id],
+    });
+    if (existing.rows.length === 0) return null;
+
+    const currentToken = existing.rows[0].share_token
+      ? String(existing.rows[0].share_token).trim()
+      : '';
+    if (currentToken) return currentToken;
+
+    const newToken = crypto.randomBytes(16).toString('base64url');
+    const now = new Date().toISOString();
+
+    await client.execute({
+      sql: 'UPDATE articles SET share_token = ?, updated_at = ? WHERE id = ? AND share_token IS NULL',
+      args: [newToken, now, id],
+    });
+
+    const refreshed = await client.execute({
+      sql: 'SELECT share_token FROM articles WHERE id = ? LIMIT 1',
+      args: [id],
+    });
+    const finalToken = refreshed.rows[0]?.share_token
+      ? String(refreshed.rows[0].share_token).trim()
+      : '';
+    return finalToken || newToken;
   },
 
   async getArticleByUrl(url: string): Promise<Article | null> {

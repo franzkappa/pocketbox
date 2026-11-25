@@ -58,7 +58,12 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - Dedicated **Move to Folder modal** (`ArticleFolderModal`) with 1-tap folder switching, inline colored folder creation, optimistic UI updates, sidebar count refresh, and IndexedDB sync.
    - Dedicated **Manage Tags modal** (`ArticleTagsModal`) with real-time filtering, 1-tap tag creation, optimistic UI updates, sidebar tag count refresh, and automatic IndexedDB offline cache sync.
 
-8. **Privacy & Security**:
+8. **1-Click Saved Copy Sharing (`/share/[token]`)**:
+   - Share the **server-saved copy** of any article or Gmail newsletter (never the original or private Gmail URL) via a single click from either a **Library card** (`ArticleCard`) or inside the **Reader View**.
+   - Generates a private, unguessable `share_token` on demand (`POST /api/articles/[id]/share`) and copies the link directly to your clipboard (with Safari/iOS `ClipboardItem` gesture preservation and fallback toast).
+   - Opens in a clean, login-free public reader (`/share/[token]`) with theme/font/size controls, OpenGraph link previews, `noindex` robots metadata, and server-side HTML sanitization (`lib/sanitize.ts`) — without exposing personal folders, tags, or original source URLs.
+
+9. **Privacy & Security**:
    - Protected by personal password/PIN (`POCKETBOX_PASSWORD`) with 1-year persistent session cookie.
    - Flexible API authentication supporting `Authorization: Bearer <key>`, `X-API-Key`, or URL query tokens (`?key=...`).
 
@@ -186,6 +191,7 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 | `GET` | `/api/articles/[id]` | Retrieve single article with full HTML content |
 | `PATCH` | `/api/articles/[id]` | Update read, favorite, archive, folder, or tag status |
 | `DELETE` | `/api/articles/[id]` | Delete article permanently |
+| `POST` | `/api/articles/[id]/share` | Generate or retrieve a public `share_token` (`/share/[token]`) for the saved article/newsletter |
 | `GET` | `/api/auth/status` | Diagnostic healthcheck (checks DB connection, folders count, and auth status) |
 | `POST` | `/api/auth/login` | Authenticate and issue 1-year HttpOnly session cookie |
 | `POST` | `/api/auth/logout` | Clear session cookie |
@@ -213,6 +219,8 @@ pocketbox/
 │   ├── auth.ts               # Resilient password, PIN & token verification
 │   ├── extractor.ts          # Readability + dedicated Gmail/email newsletter HTML cleaner (JSDOM)
 │   ├── newsletterClassifier.ts # Multi-signal newsletter fingerprinting & auto-folder classifier
+│   ├── sanitize.ts           # Server-side HTML sanitizer for public shared copies
+│   ├── shareClient.ts        # 1-click share token generation & cross-browser clipboard helper
 │   ├── offlineStorage.ts     # Client-side IndexedDB caching for iOS PWA
 │   ├── cors.ts               # Permissive CORS headers
 │   └── types.ts              # TypeScript interfaces
@@ -220,18 +228,20 @@ pocketbox/
 │   ├── layout.tsx            # PWA shell, meta tags, and Service Worker registration
 │   ├── page.tsx              # Main library view (Inbox, Newsletters, Favorites, Archive)
 │   ├── add/                  # Web Share Target & bookmarklet ingest page
+│   ├── share/[token]/        # Public distraction-free reader for shared saved copies (no login)
 │   ├── globals.css           # Reader & Tailwind base styling
 │   └── api/
 │       ├── save/             # Streamlined iOS Shortcut save route
-│       ├── articles/         # Article CRUD & extraction endpoints
+│       ├── articles/         # Article CRUD, extraction & /share token endpoints
 │       ├── auth/             # Login, logout, and auth status endpoints
 │       ├── folders/          # Folder CRUD + /api/folders/detect-newsletter classifier endpoint
 │       └── tags/             # Tag management endpoints
 ├── components/
 │   ├── PullToRefresh.tsx     # Native-grade touch pull-down refresh component
 │   ├── Sidebar.tsx           # Responsive sidebar with dedicated Newsletter sub-folders & inline rename
-│   ├── ArticleCard.tsx       # Article preview card with quick actions
-│   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes)
+│   ├── ArticleCard.tsx       # Article preview card with quick actions (incl. 1-click Share)
+│   ├── ReaderView.tsx        # Minimalist distraction-free reader (4 themes, 1-click Share)
+│   ├── SharedArticleReader.tsx # Public read-only reader for /share/[token] saved copies
 │   ├── AddArticleModal.tsx   # Manual URL input modal
 │   ├── ArticleFolderModal.tsx# Post-save folder picker modal (move/create/unassign folder)
 │   ├── ArticleTagsModal.tsx  # Post-save tag editor modal (add/create/remove tags)

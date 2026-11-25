@@ -1,7 +1,7 @@
 # PocketBox - AI Agent Session Handoff & Architecture Guide
 
-> **Current Status:** ✅ **Fully Implemented, Verified, and Published (Release v0.2.0 — Gmail Newsletter Archiving, Dedicated Newsletters View, Autonomous Multi-Signal Newsletter Folder Organization, Post-Save Tag & Folder Management & Mobile UX Fixes)**  
-> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v7`), the Firefox WebExtension (`v0.3.0` with targeted Gmail newsletter extraction and real-time auto-folder preview), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, dedicated newsletter archiving/reading, and autonomous multi-signal newsletter folder clustering are active and verified end-to-end. The user's phone is 100% independent from the Mac. Release **v0.2.0** is officially published on GitHub with pre-packaged extension assets. Discoverability optimizations (14 curated GitHub topics and 1-Click Vercel Deploy) are live on repository `franzkappa/pocketbox`.
+> **Current Status:** ✅ **Fully Implemented, Verified, and Synced (1-Click Saved Copy Sharing `/share/[token]` + Release v0.2.0 baseline)**  
+> All phases including the 24/7 Cloud Architecture (Vercel + Turso SQLite), the native iOS Shortcuts 1-Tap Save integration, the PWA offline caching layer (`pocketbox-v7`), the Firefox WebExtension (`v0.3.0` with targeted Gmail newsletter extraction and real-time auto-folder preview), mobile GPU rendering optimizations (zero-re-render scroll & anti-flicker images), responsive reader appearance popover positioning, post-save article tag & folder management, dedicated newsletter archiving/reading, autonomous multi-signal newsletter folder clustering, and **1-click saved-copy sharing (`/share/[token]`)** are active and verified end-to-end. The user's phone is 100% independent from the Mac. Release **v0.2.0** is published on GitHub with pre-packaged extension assets, and the repository `franzkappa/pocketbox` includes 14 curated GitHub topics and 1-Click Vercel Deploy.
 
 ---
 
@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS articles (
   reading_time_minutes INTEGER NOT NULL DEFAULT 1,
   source_type TEXT NOT NULL DEFAULT 'article',
   folder_id TEXT,
+  share_token TEXT,
   is_read INTEGER NOT NULL DEFAULT 0,
   is_favorite INTEGER NOT NULL DEFAULT 0,
   is_archived INTEGER NOT NULL DEFAULT 0,
@@ -161,10 +162,11 @@ CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(is_archived, is_favor
 CREATE INDEX IF NOT EXISTS idx_articles_folder ON articles(folder_id);
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_source_type ON articles(source_type, is_archived);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_share_token ON articles(share_token);
 CREATE INDEX IF NOT EXISTS idx_newsletter_rules_folder ON newsletter_rules(folder_id);
 ```
 
-*(Note: `ensureSchema` runs idempotent `PRAGMA table_info(articles)` and `PRAGMA table_info(folders)` checks and automatically executes `ALTER TABLE articles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'article'` and `ALTER TABLE folders ADD COLUMN folder_type TEXT NOT NULL DEFAULT 'article'` on existing SQLite/Turso databases.)*
+*(Note: `ensureSchema` runs idempotent `PRAGMA table_info(articles)` and `PRAGMA table_info(folders)` checks and automatically executes `ALTER TABLE articles ADD COLUMN source_type TEXT NOT NULL DEFAULT 'article'`, `ALTER TABLE articles ADD COLUMN share_token TEXT`, and `ALTER TABLE folders ADD COLUMN folder_type TEXT NOT NULL DEFAULT 'article'` on existing SQLite/Turso databases.)*
 
 Default seeded folders (`folder_type = 'article'`): `Technology`, `Work`, `Long Reads`, `Personal`.  
 Default seeded tags: `must-read`, `quick`, `reference`.
@@ -183,6 +185,7 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
 | `GET` | `/api/articles/[id]` | Get single article with full HTML |
 | `PATCH` | `/api/articles/[id]` | Update article state (`is_read`, `is_favorite`, `is_archived`, `folder_id`, `tags`; moving a newsletter automatically updates learned `newsletter_rules`) |
 | `DELETE` | `/api/articles/[id]` | Delete article permanently |
+| `POST` | `/api/articles/[id]/share` | Generate or retrieve a private-by-default `share_token` (`/share/[token]`) for sharing the saved server copy |
 | `GET` | `/api/auth/status` | Diagnostic healthcheck (returns database type, status, folders count, auth status) |
 | `POST` | `/api/auth/login` | Authenticate with password/PIN, sets 1-year HttpOnly session cookie |
 | `POST` | `/api/auth/logout` | Clears session cookie |
@@ -245,6 +248,11 @@ All endpoints support CORS (`*`) and flexible authentication (`Authorization: Be
    - **Conflict Penalty & Historical Rule Learning (`newsletter_rules` table in [`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts))**: Solves both same-sender multi-newsletter disambiguation (e.g., `alice@euobserver.com` sending both *"EUobserver morning"* and *"EUobserver Weekly"* applies a -70 pt conflict penalty on the edition mismatch and creates separate folders) and changing-journalist continuity (e.g., *"EUobserver morning"* sent by `alice@euobserver.com` today and `bob@euobserver.com` tomorrow matches via domain + masthead/footer/prefix). Moving or renaming a newsletter folder (`PATCH /api/articles/[id]`, `PATCH /api/folders/[id]`) updates the learned rules so future issues automatically follow user corrections.
    - **Dedicated Newsletter Folders (`folders.folder_type = 'newsletter'`)**: Separated from general web article folders (`folder_type = 'article'`). Displayed as collapsible sub-folders directly beneath **Newsletters** in [`components/Sidebar.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/Sidebar.tsx) (with inline rename `Pencil`, issue count badges, and quick creation) and as a 1-tap horizontal series filter bar at the top of the **Newsletters** view in [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx).
    - **Firefox Extension Auto-Folder Preview (`v0.3.0`, [`firefox-extension/popup.js`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/firefox-extension/popup.js), [`app/api/folders/detect-newsletter/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/folders/detect-newsletter/route.ts))**: On popup open in Gmail, queries `/api/folders/detect-newsletter` and pre-selects either `📁 Auto: <Existing Folder>` or `✨ Nuova cartella: <Suggested Name>` (with an inline editable input box to customize the name on the fly before saving), backed by automatic server-side resolution in `POST /api/articles`.
+13. **1-Click Saved Copy Sharing (`/share/[token]`)**:
+   - **Private-by-Default Token Storage ([`lib/db.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/db.ts), [`lib/types.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/types.ts))**: Added `share_token TEXT` (with `UNIQUE` index `idx_articles_share_token` and idempotent `PRAGMA table_info(articles)` migration). `createOrGetShareToken(id)` generates a 16-byte `base64url` token via `crypto.randomBytes(16)` on first share and returns the same token idempotently on subsequent clicks.
+   - **Authenticated Token Endpoint ([`app/api/articles/[id]/share/route.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/api/articles/%5Bid%5D/share/route.ts))**: Protected by `isRequestAuthorized` (`401` if unauthenticated, `404` if missing). Returns `{ success: true, share_token, share_path }`.
+   - **Public Server-Rendered Share View ([`app/share/[token]/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/share/%5Btoken%5D/page.tsx), [`app/share/[token]/not-found.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/share/%5Btoken%5D/not-found.tsx), [`components/SharedArticleReader.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/SharedArticleReader.tsx), [`lib/sanitize.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/sanitize.ts))**: Public (no auth required) Next.js dynamic route that validates token format, fetches `db.getArticleByShareToken(token)`, sanitizes `content_html` on the server with `sanitizeHtmlForPublicShare` (JSDOM stripping `<script>`, `<style>`, `<iframe>`, `<svg>`, `on*` event attributes, inline styles, and `javascript:` URIs), and passes only a safe `SharedArticle` DTO to `SharedArticleReader`. Private metadata (`id`, `folder`, `tags`, `is_favorite`, `is_archived`, and private `mail.google.com` or original URLs) is never serialized into the public page. Includes `select-text` + `overflow-y-auto` overrides against `body` `select-none overflow-hidden`, 4 reader themes, font/size controls, OpenGraph tags, and `robots: { index: false, follow: false }`.
+   - **1-Click UI & Cross-Browser Clipboard ([`lib/shareClient.ts`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/lib/shareClient.ts), [`components/ArticleCard.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ArticleCard.tsx), [`components/ReaderView.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/components/ReaderView.tsx), [`app/page.tsx`](file:///Users/federicocaruso/Documents/LLM%20projects/new%20pocket/app/page.tsx))**: Direct click Share button on both cards and reader header generates/reuses the token, updates React state + IndexedDB (`updateCachedArticleOffline`), copies the full `/share/<token>` URL using Promise-backed `ClipboardItem` (retaining user-gesture activation on Safari/iOS across the async fetch) with `writeText`/`execCommand` and a `z-[60]` manual-copy toast fallback.
 
 ---
 
