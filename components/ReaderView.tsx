@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react';
 import type { Article } from '@/lib/types';
+import { getSafeHttpUrl, getSourceLinkLabels, getUrlHostname } from '@/lib/url';
 
 interface ReaderViewProps {
   article: Article;
@@ -95,12 +96,10 @@ export function ReaderView({
   const isFavorite = article.is_favorite === 1;
   const isArchived = article.is_archived === 1;
   const isNewsletter = article.source_type === 'newsletter';
-  const isGmailUrl = /^https?:\/\/mail\.google\.com\//i.test(article.url);
-  const externalLinkTitle = isNewsletter
-    ? isGmailUrl
-      ? 'Open email in Gmail'
-      : 'Open newsletter web version'
-    : 'Open original website';
+  const safeSourceUrl = getSafeHttpUrl(article.url);
+  const sourceHostname = getUrlHostname(article.url);
+  const sourceLabels = getSourceLinkLabels(article.source_type, article.url);
+  const externalLinkTitle = sourceLabels.actionTitle;
   const hasFolder = Boolean(article.folder);
   const hasTags = Boolean(article.tags && article.tags.length > 0);
 
@@ -290,7 +289,7 @@ export function ReaderView({
           <div className="hidden md:flex flex-col items-center max-w-sm truncate text-center">
             <span className="text-xs font-semibold truncate opacity-80">{article.title}</span>
             <span className="text-[10px] opacity-60 truncate">
-              {article.site_name || new URL(article.url).hostname}
+              {article.site_name || sourceHostname}
             </span>
           </div>
 
@@ -496,16 +495,18 @@ export function ReaderView({
             </button>
 
             {/* Open Original Link */}
-            <a
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition opacity-80 touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center"
-              title={externalLinkTitle}
-              aria-label={externalLinkTitle}
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
+            {safeSourceUrl && (
+              <a
+                href={safeSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-black/10 transition opacity-80 touch-manipulation min-w-[38px] min-h-[38px] flex items-center justify-center"
+                title={externalLinkTitle}
+                aria-label={externalLinkTitle}
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
           </div>
         </div>
 
@@ -549,7 +550,7 @@ export function ReaderView({
                 ) : (
                   <Globe className="w-3.5 h-3.5" />
                 )}
-                <span>{article.site_name || new URL(article.url).hostname}</span>
+                <span>{article.site_name || sourceHostname}</span>
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
@@ -573,6 +574,25 @@ export function ReaderView({
               )}
               <div>Saved on {new Date(article.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</div>
             </div>
+
+            {/* Source Link */}
+            {safeSourceUrl && (
+              <div className="mt-4">
+                <a
+                  href={safeSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1.5 max-w-full px-3 py-1.5 rounded-xl border text-xs font-medium opacity-85 hover:opacity-100 transition ${currentTheme.card} ${currentTheme.border}`}
+                  title={externalLinkTitle}
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  <span className="shrink-0 font-semibold">{sourceLabels.prefix}</span>
+                  <span className="truncate underline underline-offset-2">
+                    {safeSourceUrl}
+                  </span>
+                </a>
+              </div>
+            )}
 
             {/* Article Folder & Tags Row */}
             <div className="mt-4 flex flex-wrap items-center gap-1.5">
@@ -684,13 +704,24 @@ export function ReaderView({
           {/* Article End Mark */}
           <div className="mt-16 pt-8 border-t border-black/10 flex flex-col items-center justify-center text-center opacity-60 text-xs gap-2 pb-12">
             <div>Finished reading</div>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
               <button
                 onClick={() => onToggleArchive(article)}
                 className="px-4 py-2 rounded-xl bg-black/10 hover:bg-black/20 font-semibold transition"
               >
                 {isArchived ? 'Move to Inbox' : '✓ Mark as Read & Archive'}
               </button>
+              {safeSourceUrl && (
+                <a
+                  href={safeSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-black/10 hover:bg-black/20 font-semibold transition"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  <span>{sourceLabels.endButtonLabel}</span>
+                </a>
+              )}
             </div>
           </div>
         </div>

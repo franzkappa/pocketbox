@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Mail, Tag as TagIcon, Folder as FolderIcon, Share2, Check, Loader2 } from 'lucide-react';
+import { Bookmark, Archive, ArchiveRestore, Trash2, Clock, Globe, Mail, Tag as TagIcon, Folder as FolderIcon, Share2, Check, Loader2, ExternalLink } from 'lucide-react';
 import type { Article } from '@/lib/types';
+import { getSafeHttpUrl, getSourceLinkLabels, getUrlHostname } from '@/lib/url';
 
 interface ArticleCardProps {
   article: Article;
@@ -56,6 +57,21 @@ export function ArticleCard({
   const isNewsletter = article.source_type === 'newsletter';
   const hasFolder = Boolean(article.folder);
   const hasTags = Boolean(article.tags && article.tags.length > 0);
+  const safeSourceUrl = getSafeHttpUrl(article.url);
+  const sourceHostname = getUrlHostname(article.url);
+  const sourceLabels = getSourceLinkLabels(article.source_type, article.url);
+  const sourceName = article.site_name || sourceHostname;
+
+  const sourceBadgeContent = (
+    <>
+      {isNewsletter ? (
+        <Mail className="w-3 h-3 flex-shrink-0" />
+      ) : (
+        <Globe className="w-3 h-3 flex-shrink-0" />
+      )}
+      <span className="truncate">{sourceName}</span>
+    </>
+  );
 
   // Format date nicely
   const formattedDate = new Date(article.created_at).toLocaleDateString(undefined, {
@@ -107,20 +123,32 @@ export function ArticleCard({
       {/* Content Area */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
-          {/* Metadata Row: Site Name & Reading Time */}
+          {/* Metadata Row: Site Name (Source Link) & Reading Time */}
           <div className="flex items-center justify-between text-[11px] font-medium text-slate-400 mb-2 gap-2">
-            <span
-              className={`flex items-center gap-1.5 truncate max-w-[65%] font-semibold ${
-                isNewsletter ? 'text-indigo-400/95' : 'text-rose-400/90'
-              }`}
-            >
-              {isNewsletter ? (
-                <Mail className="w-3 h-3 flex-shrink-0" />
-              ) : (
-                <Globe className="w-3 h-3 flex-shrink-0" />
-              )}
-              <span className="truncate">{article.site_name || new URL(article.url).hostname}</span>
-            </span>
+            {safeSourceUrl ? (
+              <a
+                href={safeSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`group/source inline-flex items-center gap-1.5 truncate max-w-[65%] font-semibold hover:underline underline-offset-2 touch-manipulation ${
+                  isNewsletter ? 'text-indigo-400/95 hover:text-indigo-300' : 'text-rose-400/90 hover:text-rose-300'
+                }`}
+                title={`${sourceLabels.actionTitle}: ${safeSourceUrl}`}
+                aria-label={`${sourceName} — ${sourceLabels.actionTitle}`}
+              >
+                {sourceBadgeContent}
+                <ExternalLink className="w-2.5 h-2.5 flex-shrink-0 opacity-70 group-hover/source:opacity-100" />
+              </a>
+            ) : (
+              <span
+                className={`flex items-center gap-1.5 truncate max-w-[65%] font-semibold ${
+                  isNewsletter ? 'text-indigo-400/95' : 'text-rose-400/90'
+                }`}
+              >
+                {sourceBadgeContent}
+              </span>
+            )}
             <span className="flex items-center gap-1 text-slate-400 flex-shrink-0">
               <Clock className="w-3 h-3" />
               <span>{article.reading_time_minutes} min read</span>

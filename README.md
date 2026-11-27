@@ -52,6 +52,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - Clean typography for both articles and newsletters with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
    - Adjustable font sizes, font families (Serif, Sans, Mono), responsive table/divider styling, and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
    - Responsive appearance popover centered with safe margin clearance across all mobile and desktop viewports, supporting click-outside and `Esc` shortcut dismissal.
+   - **Always-Visible Source Link**: Every saved article and newsletter always shows a direct link to its original source (`Original article:`, `Web version:`, or `Original email:` for Gmail links) in the **Reader View** header badge, top toolbar, and end-of-article footer, as well as via the clickable source badge on **Library cards** (`ArticleCard`).
 
 7. **Flexible Organization — Folders & Tags (Before & After Saving)**:
    - Assign folders and tags when saving an article, and move articles between folders (or remove them to General) and add/remove tags at any time afterward from either the **Library cards** or directly inside the **Reader View**.
