@@ -268,7 +268,7 @@ export function ReaderView({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col ${currentTheme.bg} ${currentTheme.text} transition-colors duration-200`}
+      className={`fixed inset-0 z-50 flex flex-col select-text ${currentTheme.bg} ${currentTheme.text} transition-colors duration-200`}
     >
       {/* Top Header Bar with Safe Area Clearance */}
       <header

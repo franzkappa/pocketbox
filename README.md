@@ -50,6 +50,7 @@ It runs **24/7 for free in the cloud** (Vercel + Turso SQLite) without requiring
    - **Custom Newsletter HTML Cleaner (`extractNewsletter`)**: Unwraps nested email layout `<table>` wrappers (preserving real data tables), strips 1×1 tracking pixels, hidden preheaders, and hardcoded inline colors/widths, unwraps Google redirect links and Gmail proxy image URLs, and selects a clean hero image while skipping social icons and logos.
    - **Built-in Readability Engine (`@mozilla/readability` + JSDOM)** for web articles: Strips ads, tracking scripts, cookie prompts, and clutter.
    - Clean typography for both articles and newsletters with 4 themes: *Paper Light*, *Warm Sepia*, *Dark Slate*, and *Pure OLED Black*.
+   - **Selectable Article Text**: Full native text selection across titles, metadata, and article body in both the Reader View and shared copies (explicitly overriding the app shell's `select-none` and any inline source restrictions on desktop and iOS WebKit).
    - Adjustable font sizes, font families (Serif, Sans, Mono), responsive table/divider styling, and real-time GPU-accelerated reading progress bar with zero scroll-induced component re-renders.
    - Responsive appearance popover centered with safe margin clearance across all mobile and desktop viewports, supporting click-outside and `Esc` shortcut dismissal.
    - **Always-Visible Source Link**: Every saved article and newsletter always shows a direct link to its original source (`Original article:`, `Web version:`, or `Original email:` for Gmail links) in the **Reader View** header badge, top toolbar, and end-of-article footer, as well as via the clickable source badge on **Library cards** (`ArticleCard`).
@@ -222,6 +223,7 @@ pocketbox/
 │   ├── newsletterClassifier.ts # Multi-signal newsletter fingerprinting & auto-folder classifier
 │   ├── sanitize.ts           # Server-side HTML sanitizer for public shared copies
 │   ├── shareClient.ts        # 1-click share token generation & cross-browser clipboard helper
+│   ├── url.ts                # Safe http(s) URL validation & source link label helpers
 │   ├── offlineStorage.ts     # Client-side IndexedDB caching for iOS PWA
 │   ├── cors.ts               # Permissive CORS headers
 │   └── types.ts              # TypeScript interfaces

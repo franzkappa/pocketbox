@@ -82,6 +82,13 @@ body {
 .reader-content {
   line-height: 1.75;
   letter-spacing: -0.003em;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.reader-content * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
 .reader-content p {
