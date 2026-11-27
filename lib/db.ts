@@ -595,6 +595,8 @@ export const db = {
       conditions.push('a.is_archived = 1');
     } else if (options.filter === 'favorites') {
       conditions.push('a.is_favorite = 1');
+    } else if (options.filter === 'articles') {
+      conditions.push("a.source_type = 'article' AND a.is_archived = 0");
     } else if (options.filter === 'newsletters') {
       conditions.push("a.source_type = 'newsletter' AND a.is_archived = 0");
     } else {

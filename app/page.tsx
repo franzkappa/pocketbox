@@ -234,8 +234,8 @@ export default function HomePage() {
   // Toggle archive
   const handleToggleArchive = async (article: Article) => {
     const newArch = article.is_archived === 1 ? 0 : 1;
-    // Optimistic update: if current filter is inbox or newsletters, remove it from list when archived
-    if ((currentFilter === 'inbox' || currentFilter === 'newsletters') && newArch === 1) {
+    // Optimistic update: if current filter is inbox, articles, or newsletters, remove it from list when archived
+    if ((currentFilter === 'inbox' || currentFilter === 'articles' || currentFilter === 'newsletters') && newArch === 1) {
       setArticles((prev) => prev.filter((a) => a.id !== article.id));
     } else if (currentFilter === 'archive' && newArch === 0) {
       setArticles((prev) => prev.filter((a) => a.id !== article.id));
@@ -656,6 +656,7 @@ export default function HomePage() {
         : `Folder: ${activeFolder.name}`;
     }
     if (activeTag) return `Tag: #${activeTag.name}`;
+    if (currentFilter === 'articles') return 'Articles';
     if (currentFilter === 'newsletters') return 'Newsletters';
     if (currentFilter === 'favorites') return 'Favorites';
     if (currentFilter === 'archive') return 'Archive';
@@ -891,17 +892,21 @@ export default function HomePage() {
               <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-4 shadow-xl">
                 {currentFilter === 'newsletters' ? (
                   <Mail className="w-8 h-8 text-indigo-400/80" />
+                ) : currentFilter === 'articles' ? (
+                  <BookOpen className="w-8 h-8 text-sky-400/80" />
                 ) : currentFilter === 'favorites' ? (
                   <Bookmark className="w-8 h-8 text-amber-400/80" />
                 ) : currentFilter === 'archive' ? (
                   <Archive className="w-8 h-8 text-emerald-400/80" />
                 ) : (
-                  <BookOpen className="w-8 h-8 text-rose-400/80" />
+                  <Inbox className="w-8 h-8 text-rose-400/80" />
                 )}
               </div>
               <h3 className="text-base font-bold text-white mb-1">
                 {currentFilter === 'newsletters'
                   ? 'No newsletters yet'
+                  : currentFilter === 'articles'
+                  ? 'No articles yet'
                   : currentFilter === 'favorites'
                   ? 'No favorites yet'
                   : currentFilter === 'archive'
@@ -911,7 +916,7 @@ export default function HomePage() {
               <p className="text-xs text-slate-400 mb-6 leading-relaxed">
                 {currentFilter === 'newsletters'
                   ? 'Open any newsletter in Gmail on Firefox and click the PocketBox extension to archive and read it distraction-free.'
-                  : currentFilter === 'inbox'
+                  : currentFilter === 'articles' || currentFilter === 'inbox'
                   ? 'Save articles from Firefox on Mac or iPhone, or click "+ Add URL" to save your first read.'
                   : 'Articles you star or archive will appear right here.'}
               </p>

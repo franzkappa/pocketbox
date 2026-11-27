@@ -69,6 +69,8 @@ export async function getCachedArticlesOffline(options: {
           results = results.filter((a) => a.is_archived === 1);
         } else if (options.filter === 'favorites') {
           results = results.filter((a) => a.is_favorite === 1);
+        } else if (options.filter === 'articles') {
+          results = results.filter((a) => a.source_type !== 'newsletter' && a.is_archived === 0);
         } else if (options.filter === 'newsletters') {
           results = results.filter((a) => a.source_type === 'newsletter' && a.is_archived === 0);
         } else {

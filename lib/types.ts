@@ -103,7 +103,7 @@ export interface SharedArticle {
   created_at: string;
 }
 
-export type ArticleFilter = 'inbox' | 'newsletters' | 'archive' | 'favorites';
+export type ArticleFilter = 'inbox' | 'articles' | 'newsletters' | 'archive' | 'favorites';
 
 export interface ArticleQueryOptions {
   filter?: ArticleFilter;

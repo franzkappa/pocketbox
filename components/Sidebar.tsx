@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { 
   Inbox, 
+  BookOpen,
   Mail,
   Bookmark, 
   Archive, 
@@ -161,6 +162,19 @@ export function Sidebar({
         >
           <Inbox className="w-4 h-4 text-rose-400" />
           <span className="flex-1 text-left">Inbox</span>
+        </button>
+
+        <button
+          onClick={() => {
+            onSelectFilter('articles');
+            onSelectFolder(undefined);
+            onSelectTag(undefined);
+            onClose();
+          }}
+          className={navItemClass(currentFilter === 'articles' && !selectedFolderId && !selectedTagId)}
+        >
+          <BookOpen className="w-4 h-4 text-sky-400" />
+          <span className="flex-1 text-left">Articles</span>
         </button>
 
         <div className="space-y-1">
